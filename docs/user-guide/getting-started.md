@@ -1,6 +1,16 @@
-# Getting Started with RHOAI AI Feature Sizing
+# Getting Started Guide
 
-Welcome! This guide will help you get up and running with the RHOAI AI Feature Sizing tool quickly. This tool uses [Llama Stack](https://llama-stack.readthedocs.io/en/latest/) to provide AI-powered feature estimation and JIRA integration.
+Welcome to RHOAI AI Feature Sizing! This guide will help you set up and start using the comprehensive Jira refinement pipeline with Llama Stack agents for intelligent issue processing and estimation.
+
+## 🎯 What is RHOAI AI Feature Sizing?
+
+RHOAI AI Feature Sizing is an AI-powered tool that provides:
+
+- **Complete Jira Refinement Pipeline** - Automated issue processing from epics to estimates
+- **Epic Decomposition** - Break down large initiatives into manageable user stories
+- **Intelligent Issue Enhancement** - AI-powered content refinement and requirement analysis
+- **Automated Estimation** - Story point assignment with confidence metrics
+- **Llama Stack Integration** - Advanced AI agents for sophisticated issue processing
 
 ## 🚀 Quick Start
 
@@ -9,9 +19,9 @@ Welcome! This guide will help you get up and running with the RHOAI AI Feature S
 Before you begin, ensure you have:
 
 - **Python 3.12+** installed
-- **Git** for version control
-- **uv** package manager ([installation guide](https://docs.astral.sh/uv/getting-started/installation/))
-- **Ollama** for local AI models ([installation guide](https://ollama.com/download))
+- **Access to a Jira instance** with API token
+- **Ollama** installed for local AI models
+- **Basic familiarity** with command-line interfaces
 
 ### 1. Installation
 
@@ -21,324 +31,532 @@ git clone <repository-url>
 cd rhoai-ai-feature-sizing
 
 # Install dependencies
-uv sync
-uv pip install -e .
+pip install -e .
 
-# Activate virtual environment
-source .venv/bin/activate
+# Verify installation
+python main.py --help
 ```
 
-### 2. Set Up Llama Stack
-
-Following the [Llama Stack Quickstart](https://llama-stack.readthedocs.io/en/latest/getting_started/index.html#step-1-install-and-setup):
+### 2. Set up Llama Stack with Ollama
 
 ```bash
-# 1. Install uv (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 2. Run inference on a Llama model with Ollama
+# Pull and start the AI model
+ollama pull llama3.2:3b
 ollama run llama3.2:3b --keepalive 60m
+
+# Set up Llama Stack server
+INFERENCE_MODEL=llama3.2:3b uv run --with llama-stack llama stack build \
+  --template ollama \
+  --image-type venv \
+  --run
 ```
 
-### 3. Start Llama Stack Server
+The Llama Stack server will start on `http://localhost:8321` by default.
+
+### 3. Configure Jira Connection
 
 ```bash
-# Run the Llama Stack server with Ollama provider
-INFERENCE_MODEL=llama3.2:3b uv run --with llama-stack llama stack build --template ollama --image-type venv --run
+# Configure your Jira instance
+python main.py configure jira \
+  --url https://your-company.atlassian.net \
+  --username your-email@company.com \
+  --token YOUR_API_TOKEN
+
+# Validate the connection
+python main.py validate jira
 ```
 
-This will start the Llama Stack server at `http://localhost:8321`.
+**Getting a Jira API Token:**
+1. Go to [Atlassian Account Settings](https://id.atlassian.com/manage-profile/security/api-tokens)
+2. Click "Create API token"
+3. Label it "RHOAI Feature Sizing"
+4. Copy the generated token
 
-### 4. Configure Environment
-
-Create a `.env` file in the project root:
+### 4. Configure Llama Stack
 
 ```bash
-# Llama Stack Configuration
-LLAMA_STACK_BASE_URL=http://localhost:8321
-LLAMA_STACK_CLIENT_LOG=debug
-LLAMA_STACK_PORT=8321
-LLAMA_STACK_CONFIG=ollama
+# Configure Llama Stack connection
+python main.py configure llama-stack \
+  --url http://localhost:8321 \
+  --model llama3.2:3b
 
-# Optional: JIRA Integration
-JIRA_BASE_URL=https://your-domain.atlassian.net
-JIRA_USERNAME=your-email@example.com
-JIRA_API_TOKEN=your-api-token
-
-# Optional: Additional API Keys
-TAVILY_SEARCH_API_KEY=your-key-here
-BRAVE_SEARCH_API_KEY=your-key-here
+# Validate the connection
+python main.py validate llama-stack
 ```
 
-### 5. Run Your First Feature Estimation
+### 5. Your First Issue Refinement
 
 ```bash
-# Run the main application
-python main.py
+# Process a single issue
+python main.py refine-issue PROJ-123
+
+# View the results
+cat results/PROJ-123-refined.json
 ```
 
-## 🎯 Basic Usage
+## 🔄 Understanding the Pipeline
 
-### Command Line Interface
+The RHOAI AI Feature Sizing pipeline consists of four main stages:
 
-The tool provides a command-line interface for feature sizing:
+### Stage 1: Epic Processing (`stages/epics.py`)
+- Analyzes epic scope and objectives
+- Decomposes epics into constituent user stories
+- Generates story templates with AI assistance
+- Maps dependencies between stories
+
+### Stage 2: Jira Issue Refinement (`stages/jiras.py`)
+- Retrieves issues using intelligent Llama Stack agents
+- Enhances descriptions and acceptance criteria
+- Adds technical requirements and implementation details
+- Validates content quality and completeness
+
+### Stage 3: Estimation Engine (`stages/estimates.py`)
+- Performs multi-dimensional complexity analysis
+- Assigns story points using AI-driven estimation
+- Calculates confidence levels for estimates
+- Identifies potential implementation risks
+
+### Stage 4: Output Generation (`stages/draft_jiras.py`)
+- Creates enhanced Jira tickets with refined content
+- Generates comprehensive estimation reports
+- Exports results in multiple formats (JSON, CSV, Jira-ready)
+- Prepares integration data for external systems
+
+## 📋 Common Workflows
+
+### Workflow 1: Process Individual Issues
+
+Perfect for refining specific issues or testing the system.
 
 ```bash
-# Basic feature refinement
-python -m stages.refine_feature "Add user authentication to the mobile app"
+# Basic issue refinement
+python main.py refine-issue PROJ-123
 
-# Run complete estimation pipeline
-python main.py --feature "Implement real-time chat functionality"
+# Include estimation in the refinement
+python main.py refine-issue PROJ-123 --include-estimation
 
-# Generate JIRA drafts
-python -m stages.draft_jiras --feature-id "FEAT-001"
+# Process multiple issues
+python main.py refine-issue PROJ-123 PROJ-124 PROJ-125
+
+# Save results to specific file
+python main.py refine-issue PROJ-123 \
+  --output-format json \
+  --output-file refined-issue-123.json
 ```
 
-### Python API Usage
+### Workflow 2: Epic Decomposition
 
-You can also use the tool programmatically:
-
-```python
-from llama_stack_client import LlamaStackClient
-from stages.refine_feature import refine_feature
-from stages.estimate import estimate_feature
-
-# Initialize Llama Stack client
-client = LlamaStackClient(base_url="http://localhost:8321")
-
-# Refine a feature description
-feature_description = "Add user dashboard with analytics"
-refined_feature = refine_feature(client, feature_description)
-
-# Get size estimate
-estimate = estimate_feature(client, refined_feature)
-
-print(f"Estimated effort: {estimate['story_points']} story points")
-print(f"Confidence: {estimate['confidence']}%")
-```
-
-## 🔧 Configuration
-
-### Llama Stack Configuration
-
-The application uses Llama Stack for AI processing. You can configure different aspects:
+Break down large epics into manageable stories.
 
 ```bash
-# Use different models
-INFERENCE_MODEL=llama3.1:8b uv run --with llama-stack llama stack build --template ollama --image-type venv --run
+# Analyze an epic
+python main.py process-epic PROJ-100
 
-# Configure logging levels
-export LLAMA_STACK_LOGGING=server=debug;core=info
+# Create user stories from epic
+python main.py process-epic PROJ-100 \
+  --create-stories \
+  --estimate-stories \
+  --output-dir epics/PROJ-100/
 
-# Set log file
-export LLAMA_STACK_LOG_FILE=server.log
+# Process multiple epics in parallel
+python main.py process-epic PROJ-100 PROJ-101 PROJ-102 --parallel
 ```
 
-### Application Configuration
+### Workflow 3: Batch Estimation
 
-Create a `config.json` file for application-specific settings:
+Estimate multiple issues efficiently.
+
+```bash
+# Estimate all open issues in a project
+python main.py estimate-batch \
+  --jql "project=PROJ AND status='To Do'"
+
+# Estimate specific issues
+python main.py estimate-batch \
+  --issues PROJ-123,PROJ-124,PROJ-125
+
+# Export estimation results
+python main.py estimate-batch \
+  --jql "project=PROJ AND status='To Do'" \
+  --export-format csv \
+  --export-file sprint-estimates.csv
+```
+
+### Workflow 4: Full Pipeline Execution
+
+Run the complete end-to-end pipeline.
+
+```bash
+# Process entire project
+python main.py run-pipeline --project PROJ
+
+# Selective stage execution
+python main.py run-pipeline \
+  --project PROJ \
+  --stages epics,jiras,estimates \
+  --output-dir results/
+
+# Full pipeline with all options
+python main.py run-pipeline \
+  --project PROJ \
+  --include-epics \
+  --estimate-all \
+  --parallel-stages \
+  --output-dir results/PROJ-$(date +%Y%m%d)/ \
+  --log-level INFO
+```
+
+## 🛠️ Configuration
+
+### Project Configuration
+
+Create a `pipeline.yaml` file for project-specific settings:
+
+```yaml
+# pipeline.yaml
+jira:
+  url: "https://company.atlassian.net"
+  username: "user@company.com"
+  timeout: 30
+  default_project: "PROJ"
+
+llama_stack:
+  url: "http://localhost:8321"
+  default_model: "llama3.2:3b"
+  temperature: 0.7
+  timeout: 60
+
+pipeline:
+  default_stages: ["epics", "jiras", "estimates"]
+  batch_size: 5
+  parallel_workers: 2
+  output_format: "json"
+
+logging:
+  level: "INFO"
+  format: "structured"
+  file: "pipeline.log"
+```
+
+Use the configuration file:
+```bash
+python main.py run-pipeline --config pipeline.yaml --project PROJ
+```
+
+### Stage-Specific Configuration
+
+Create a `stages.yaml` file for detailed stage configuration:
+
+```yaml
+# stages.yaml
+epics:
+  max_stories_per_epic: 10
+  story_template: "templates/story.json"
+  dependency_analysis: true
+  ai_temperature: 0.6
+
+jiras:
+  enhancement_level: "detailed"  # basic, detailed, comprehensive
+  include_technical_requirements: true
+  validation_rules: 
+    - "completeness"
+    - "clarity"
+    - "technical_feasibility"
+  ai_temperature: 0.5
+
+estimates:
+  confidence_threshold: 0.7
+  estimation_method: "story_points"  # story_points, hours, t_shirt
+  include_risk_analysis: true
+  calibration_data: "historical_estimates.json"
+  ai_temperature: 0.3
+
+output:
+  formats: ["json", "csv"]
+  include_metadata: true
+  compress_large_outputs: true
+```
+
+## 📊 Understanding Output
+
+### Refined Issue Output
+
+When you process an issue, you'll get structured output like this:
 
 ```json
 {
+  "issue_key": "PROJ-123",
+  "original": {
+    "summary": "User login feature",
+    "description": "Users need to log in"
+  },
+  "refined": {
+    "summary": "Implement secure user authentication system",
+    "description": "As a user, I want to securely log into the system...",
+    "acceptance_criteria": [
+      "User can log in with email and password",
+      "System validates credentials against database",
+      "Failed login attempts are logged and limited"
+    ],
+    "technical_requirements": [
+      "Implement password hashing with bcrypt",
+      "Add rate limiting for login attempts",
+      "Integrate with OAuth2 providers"
+    ]
+  },
   "estimation": {
-    "default_confidence_threshold": 80,
-    "max_story_points": 13,
-    "complexity_factors": ["technical", "business", "integration"]
+    "story_points": 5,
+    "confidence": 0.85,
+    "reasoning": "Standard authentication implementation with modern security practices",
+    "risk_factors": ["Third-party OAuth integration complexity"]
   },
-  "jira": {
-    "default_project": "PROJ",
-    "default_issue_type": "Story",
-    "auto_assign": false
-  },
-  "prompts": {
-    "refinement_template": "prompts/refine_feature.md",
-    "estimation_template": "prompts/estimate_feature.md"
+  "metadata": {
+    "processed_at": "2024-01-15T10:30:00Z",
+    "model_used": "llama3.2:3b",
+    "processing_time": 12.5
   }
 }
 ```
 
-## 📝 Example Workflows
+### Pipeline Execution Report
 
-### Workflow 1: Basic Feature Estimation
-
-```bash
-# Step 1: Start with a rough feature description
-FEATURE="Add social login options (Google, Facebook, GitHub) to registration"
-
-# Step 2: Refine the feature
-python -m stages.refine_feature "$FEATURE"
-
-# Step 3: Get estimation
-python -m stages.estimate --refined-feature-file "output/refined_feature.json"
-
-# Step 4: Generate JIRA tickets
-python -m stages.draft_jiras --estimation-file "output/estimation.json"
-```
-
-### Workflow 2: Batch Processing
-
-```bash
-# Process multiple features from a file
-python main.py --batch-file "features.txt" --output-dir "results/"
-```
-
-Where `features.txt` contains:
-```
-Implement user profile management
-Add email notification system
-Create admin dashboard
-Integrate payment gateway
-```
-
-### Workflow 3: Interactive Mode
-
-```bash
-# Start interactive session
-python main.py --interactive
-
-# Follow prompts to:
-# 1. Describe your feature
-# 2. Review refined description
-# 3. Confirm estimation parameters
-# 4. Generate deliverables
-```
-
-## 🔍 Understanding the Output
-
-### Feature Refinement Output
+Full pipeline runs generate comprehensive reports:
 
 ```json
 {
-  "original_description": "Add social login",
-  "refined_description": "Implement OAuth2-based social login integration...",
-  "acceptance_criteria": [
-    "Users can log in with Google OAuth2",
-    "Users can log in with Facebook OAuth2",
-    "Error handling for failed authentication",
-    "Redirect to appropriate page after login"
-  ],
-  "technical_requirements": [
-    "OAuth2 client configuration",
-    "User account linking logic",
-    "Security considerations",
-    "Database schema updates"
-  ],
-  "dependencies": [
-    "User management system",
-    "Database migration framework"
-  ]
-}
-```
-
-### Estimation Output
-
-```json
-{
-  "story_points": 8,
-  "confidence": 85,
-  "complexity_factors": {
-    "technical": "medium",
-    "business": "low", 
-    "integration": "high"
+  "pipeline_execution": {
+    "project": "PROJ",
+    "started_at": "2024-01-15T09:00:00Z",
+    "completed_at": "2024-01-15T09:45:00Z",
+    "duration_seconds": 2700,
+    "status": "completed"
   },
-  "estimated_hours": 32,
-  "risk_factors": [
-    "Third-party OAuth provider changes",
-    "User account merging complexity"
-  ],
-  "recommendations": [
-    "Start with Google OAuth2 implementation",
-    "Plan for comprehensive testing of edge cases"
-  ]
+  "stages": {
+    "epics": {
+      "processed": 3,
+      "stories_created": 24,
+      "duration_seconds": 480
+    },
+    "jiras": {
+      "processed": 45,
+      "enhanced": 43,
+      "skipped": 2,
+      "duration_seconds": 1200
+    },
+    "estimates": {
+      "processed": 43,
+      "estimated": 41,
+      "confidence_avg": 0.78,
+      "duration_seconds": 600
+    }
+  },
+  "summary": {
+    "total_issues_processed": 45,
+    "total_story_points": 234,
+    "avg_confidence": 0.78,
+    "epics_decomposed": 3,
+    "stories_created": 24
+  }
 }
 ```
 
-## 🛠️ Troubleshooting
+## 🎮 Advanced Usage
+
+### Custom Prompt Templates
+
+Create custom prompts for specific domains:
+
+```bash
+# Create custom refinement prompt
+cat > prompts/security_refinement.md << EOF
+# Security Feature Refinement
+
+You are refining a security-related feature. Focus on:
+- Security requirements and compliance
+- Threat modeling considerations
+- Authentication and authorization
+- Data protection requirements
+
+Original Issue: {issue_description}
+
+Please enhance this issue with security-focused requirements.
+EOF
+
+# Use custom prompt
+python main.py refine-issue PROJ-123 \
+  --prompt-template prompts/security_refinement.md
+```
+
+### Parallel Processing
+
+For large projects, use parallel processing:
+
+```bash
+# Process with parallel stages
+python main.py run-pipeline \
+  --project PROJ \
+  --parallel-stages \
+  --max-workers 4 \
+  --batch-size 10
+
+# Parallel batch estimation
+python main.py estimate-batch \
+  --jql "project=PROJ" \
+  --parallel-batches \
+  --batch-size 20
+```
+
+### Logging and Monitoring
+
+Enable comprehensive logging:
+
+```bash
+# Debug logging to file
+python main.py --log-level DEBUG \
+  --log-file debug.log \
+  run-pipeline --project PROJ
+
+# Structured JSON logging
+python main.py --log-format json \
+  run-pipeline --project PROJ > pipeline.jsonl
+```
+
+Monitor real-time progress:
+```bash
+# In another terminal
+tail -f pipeline.log | grep "PROGRESS"
+```
+
+## 🔧 Troubleshooting
 
 ### Common Issues
 
-**1. Llama Stack Server Not Starting**
+#### 1. Llama Stack Connection Failed
+
 ```bash
 # Check if Ollama is running
 ollama list
 
-# Verify model is available
-ollama run llama3.2:3b
+# Restart Llama Stack
+pkill -f "llama stack"
+INFERENCE_MODEL=llama3.2:3b uv run --with llama-stack llama stack build \
+  --template ollama --image-type venv --run
 
-# Check port availability
-lsof -i :8321
+# Validate connection
+python main.py validate llama-stack
 ```
 
-**2. Model Not Found**
+#### 2. Jira Authentication Error
+
 ```bash
-# Pull the required model
-ollama pull llama3.2:3b
+# Test Jira connection
+python main.py validate jira
 
-# Or use a different model
-INFERENCE_MODEL=llama3.1:8b ollama run llama3.1:8b
+# Check configuration
+python main.py configure show
+
+# Reconfigure if needed
+python main.py configure jira --url https://company.atlassian.net
 ```
 
-**3. Import Errors**
+#### 3. Performance Issues
+
 ```bash
-# Reinstall dependencies
-uv sync --all-extras
+# Reduce batch size
+python main.py run-pipeline --project PROJ --batch-size 3
 
-# Check Python path
-python -c "import sys; print(sys.path)"
+# Use lighter model
+python main.py configure llama-stack --model llama3.2:1b
+
+# Enable caching
+python main.py run-pipeline --project PROJ --cache
 ```
 
-**4. JIRA Integration Issues**
+#### 4. Memory Issues
+
 ```bash
-# Test JIRA connectivity
-curl -u username:token https://your-domain.atlassian.net/rest/api/2/myself
+# Process in smaller batches
+python main.py estimate-batch \
+  --jql "project=PROJ" \
+  --batch-size 5 \
+  --max-workers 2
 
-# Verify API token permissions
+# Clear cache periodically
+python main.py cleanup cache
 ```
 
-### Performance Tips
+### Getting Help
 
-1. **Model Performance**
-   - Use GPU acceleration if available
-   - Consider smaller models for faster responses
-   - Cache model responses for repeated queries
+```bash
+# Command help
+python main.py <command> --help
 
-2. **Batch Processing**
-   - Process multiple features together
-   - Use async processing for large batches
-   - Monitor memory usage with large datasets
+# Validate system
+python main.py validate all
 
-3. **Network Optimization**
-   - Use local Ollama for development
-   - Configure connection pooling for production
-   - Implement retry logic for API calls
+# Check configuration
+python main.py configure show
 
-## 📚 Next Steps
+# View logs
+python main.py --log-level DEBUG <command>
+```
 
-Now that you're up and running:
+## 📈 Best Practices
 
-1. **Explore Advanced Features**
-   - [API Documentation](../api/endpoints.md) - Integrate with other systems
-   - [Architecture Overview](../architecture/overview.md) - Understand the system design
+### 1. Start Small
+Begin with individual issues before running full pipelines:
+```bash
+# Test with one issue first
+python main.py refine-issue PROJ-123
+```
 
-2. **Customize for Your Team**
-   - [Development Setup](../development/setup.md) - Set up development environment
-   - [Configuration Guide](../deployment/configuration.md) - Advanced configuration options
+### 2. Use Appropriate Batch Sizes
+```bash
+# For development/testing
+python main.py run-pipeline --project PROJ --batch-size 3
 
-3. **Get Help**
-   - [FAQ](./faq.md) - Common questions and answers
-   - [Contributing Guide](../../CONTRIBUTING.md) - Contribute to the project
+# For production
+python main.py run-pipeline --project PROJ --batch-size 10
+```
 
-## 🎉 Success!
+### 3. Configure Logging
+```bash
+# Always use appropriate logging
+python main.py --log-level INFO --log-file pipeline.log \
+  run-pipeline --project PROJ
+```
 
-You're now ready to start using RHOAI AI Feature Sizing for your project estimation needs! The tool will help you:
+### 4. Validate Before Processing
+```bash
+# Always validate system health
+python main.py validate all
+```
 
-- 🔍 **Refine** vague feature descriptions into detailed specifications
-- 📊 **Estimate** development effort with AI-powered analysis
-- 📋 **Generate** structured JIRA tickets for project management
-- 🔄 **Iterate** on estimations as requirements evolve
+### 5. Use Configuration Files
+Create project-specific configuration files for consistent results.
 
-For more advanced usage patterns and configuration options, continue reading the rest of our documentation.
+### 6. Monitor Resource Usage
+```bash
+# Monitor system resources during processing
+top -p $(pgrep -f "python main.py")
+```
+
+## 🎯 Next Steps
+
+Now that you're set up, explore these advanced features:
+
+1. **[CLI Reference](cli-reference.md)** - Complete command documentation
+2. **[Pipeline Configuration](../development/pipeline-configuration.md)** - Advanced configuration options
+3. **[Architecture Overview](../architecture/overview.md)** - Understanding the system design
+4. **[API Documentation](../api/endpoints.md)** - Programmatic access options
+
+## 🆘 Need Help?
+
+- 📖 Check the [FAQ](faq.md) for common questions
+- 🔧 Review [Troubleshooting](troubleshooting.md) for solutions
+- 🏗️ See [Architecture Overview](../architecture/overview.md) for system design
+- 💬 Refer to [Contributing Guide](../../CONTRIBUTING.md) for development help
 
 ---
 
-*Having issues? Check our [FAQ](./faq.md) or [open an issue](https://github.com/your-repo/issues) for help.*
+*Congratulations! You're now ready to use RHOAI AI Feature Sizing. Start with individual issue refinement and gradually explore the full pipeline capabilities.*

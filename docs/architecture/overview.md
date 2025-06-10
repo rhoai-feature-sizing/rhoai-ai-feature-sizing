@@ -1,155 +1,202 @@
 # System Architecture Overview
 
-This document provides a high-level overview of the RHOAI AI Feature Sizing system architecture, built on [Llama Stack](https://llama-stack.readthedocs.io/en/latest/).
+This document provides a high-level overview of the RHOAI AI Feature Sizing system architecture, built on [Llama Stack](https://llama-stack.readthedocs.io/en/latest/) with a comprehensive Jira refinement pipeline.
 
 ## 🏗️ Architecture Overview
 
-The RHOAI AI Feature Sizing system is designed as a modular, AI-powered feature estimation platform that leverages Llama Stack for robust AI inference and processing capabilities.
+The RHOAI AI Feature Sizing system is designed as a modular, AI-powered feature estimation platform with a full Jira integration pipeline that leverages Llama Stack agents for intelligent issue processing and refinement.
 
 ```mermaid
 graph TB
-    subgraph "Client Layer"
-        UI[Web UI]
-        CLI[Command Line Interface]
-        API_CLIENT[API Client]
+    subgraph "Command Line Interface"
+        CLI[CLI Commands]
+        MAIN[main.py]
+        LOGGING[Logging System]
     end
     
-    subgraph "Application Layer"
-        MAIN[main.py]
-        STAGES[Processing Stages]
-        TOOLS[Integration Tools]
+    subgraph "Pipeline Stages"
+        EPICS[Epic Processing]
+        JIRAS[Jira Refinement]
+        ESTIMATES[Estimation Engine]
+        DRAFT[Output Generation]
+    end
+    
+    subgraph "Llama Stack Agents"
+        JIRA_AGENT[Jira Retrieval Agent]
+        ANALYSIS_AGENT[Content Analysis Agent]
+        ESTIMATION_AGENT[Estimation Agent]
+        DOC_AGENT[Documentation Agent]
     end
     
     subgraph "Llama Stack Layer"
         LS_SERVER[Llama Stack Server]
         LS_CLIENT[Llama Stack Client]
         INFERENCE[Inference Engine]
-        AGENTS[AI Agents]
+        AGENT_RUNTIME[Agent Runtime]
     end
     
-    subgraph "Processing Stages"
-        REFINE[Feature Refinement]
-        ESTIMATE[Estimation Engine]
-        DRAFT[JIRA Draft Generation]
-    end
-    
-    subgraph "External Integrations"
-        JIRA[JIRA Integration]
-        LLM[Language Models]
+    subgraph "External Systems"
+        JIRA_API[Jira API]
+        OLLAMA[Ollama Models]
         PROMPTS[Prompt Templates]
     end
     
-    UI --> MAIN
     CLI --> MAIN
-    API_CLIENT --> MAIN
+    MAIN --> LOGGING
+    MAIN --> EPICS
+    MAIN --> JIRAS
+    MAIN --> ESTIMATES
+    MAIN --> DRAFT
     
-    MAIN --> STAGES
-    MAIN --> TOOLS
+    EPICS --> JIRA_AGENT
+    JIRAS --> ANALYSIS_AGENT
+    ESTIMATES --> ESTIMATION_AGENT
+    DRAFT --> DOC_AGENT
     
-    STAGES --> REFINE
-    STAGES --> ESTIMATE
-    STAGES --> DRAFT
-    
-    STAGES --> LS_CLIENT
-    TOOLS --> LS_CLIENT
+    JIRA_AGENT --> LS_CLIENT
+    ANALYSIS_AGENT --> LS_CLIENT
+    ESTIMATION_AGENT --> LS_CLIENT
+    DOC_AGENT --> LS_CLIENT
     
     LS_CLIENT --> LS_SERVER
     LS_SERVER --> INFERENCE
-    LS_SERVER --> AGENTS
+    LS_SERVER --> AGENT_RUNTIME
     
-    INFERENCE --> LLM
-    AGENTS --> PROMPTS
-    
-    TOOLS --> JIRA
-    DRAFT --> JIRA
+    INFERENCE --> OLLAMA
+    AGENT_RUNTIME --> PROMPTS
+    JIRA_AGENT --> JIRA_API
 ```
 
 ## 🧩 Core Components
 
-### 1. Application Layer
+### 1. Command Line Interface Layer
 
-#### Main Application (`main.py`)
-- Entry point for the application
-- Orchestrates the feature sizing workflow
-- Coordinates between different stages and tools
+#### Main CLI Application (`main.py`)
+- Unified command-line interface for all pipeline operations
+- Stage orchestration and execution management
+- Configuration management and validation
+- Comprehensive logging and error handling
 
-#### Processing Stages (`stages/`)
-- **Feature Refinement** (`refine_feature.py`) - Analyzes and refines feature specifications
-- **Estimation Engine** (`estimate.py`) - Performs AI-powered feature sizing
-- **JIRA Draft Generation** (`draft_jiras.py`) - Creates structured JIRA tickets
+#### Available Commands
+- `refine-issue` - Process individual Jira issues
+- `process-epic` - Decompose epics into stories
+- `estimate-batch` - Batch estimation of issues
+- `run-pipeline` - Full end-to-end pipeline execution
+- `configure` - System configuration management
 
-#### Integration Tools (`tools/`)
-- **JIRA Integration** (`mcp_jira.py`) - Handles JIRA API interactions and ticket management
+### 2. Pipeline Stages
 
-### 2. Llama Stack Integration
+#### Epic Processing Stage (`stages/epics.py`)
+- **Epic Analysis** - Understand epic scope and objectives
+- **Story Decomposition** - Break epics into manageable user stories
+- **Template Generation** - Create story templates with AI assistance
+- **Dependency Mapping** - Identify inter-story dependencies
 
-The system leverages [Llama Stack](https://llama-stack.readthedocs.io/en/latest/) for:
+#### Jira Issue Refinement Stage (`stages/jiras.py`)
+- **Issue Retrieval** - Fetch issues using Llama Stack agents
+- **Content Enhancement** - Improve descriptions and acceptance criteria
+- **Technical Requirements** - Add implementation details
+- **Quality Validation** - Ensure completeness and clarity
 
-- **AI Inference** - Processing natural language feature descriptions
-- **Agent-based Processing** - Structured AI workflows for feature analysis
-- **Model Management** - Handling different LLM models for specific tasks
-- **Tool Integration** - Extensible tool ecosystem for external integrations
+#### Estimation Engine Stage (`stages/estimates.py`)
+- **Complexity Analysis** - Evaluate technical and business complexity
+- **Story Point Assignment** - AI-driven estimation with confidence levels
+- **Risk Assessment** - Identify potential implementation risks
+- **Historical Calibration** - Learn from past estimation accuracy
 
-### 3. Prompt Management (`prompts/`)
+#### Output Generation Stage (`stages/draft_jiras.py`)
+- **Refined Ticket Creation** - Generate enhanced Jira tickets
+- **Estimation Reports** - Comprehensive estimation documentation
+- **Export Formats** - JSON, CSV, and custom format support
+- **Integration Outputs** - Formatted data for external systems
 
-Structured prompt templates for consistent AI interactions:
-- Feature refinement prompts
-- Estimation guidelines
-- JIRA ticket formatting templates
+### 3. Llama Stack Agent Integration
+
+The system leverages specialized Llama Stack agents for different aspects of issue processing:
+
+#### Jira Retrieval Agent
+- **Intelligent API Integration** - Smart Jira API querying
+- **Issue Filtering** - Context-aware issue selection
+- **Metadata Extraction** - Comprehensive issue data gathering
+- **Batch Processing** - Efficient bulk issue retrieval
+
+#### Content Analysis Agent
+- **Natural Language Understanding** - Deep content comprehension
+- **Context Extraction** - Identify key requirements and constraints
+- **Gap Analysis** - Find missing information in issue descriptions
+- **Enhancement Suggestions** - Recommend content improvements
+
+#### Estimation Agent
+- **Complexity Modeling** - Multi-dimensional complexity assessment
+- **Pattern Recognition** - Learn from historical estimation data
+- **Confidence Calculation** - Provide estimation reliability metrics
+- **Calibration Feedback** - Continuous improvement of estimation accuracy
+
+#### Documentation Agent
+- **Template Application** - Apply consistent documentation formats
+- **Content Generation** - Create comprehensive issue documentation
+- **Cross-Reference Management** - Maintain links between related issues
+- **Export Coordination** - Manage multi-format output generation
 
 ## 🔄 Data Flow
 
-### Feature Sizing Workflow
+### Full Pipeline Workflow
 
-1. **Input Processing**
-   - User provides feature description via CLI/API
-   - Raw feature data is validated and preprocessed
+1. **Command Execution**
+   - User initiates pipeline via CLI command
+   - Configuration validation and setup
+   - Logging initialization and stage preparation
 
-2. **Feature Refinement**
-   - Llama Stack agents analyze the feature description
-   - Structured prompts guide the refinement process
-   - Enhanced feature specification is generated
+2. **Epic Processing (Optional)**
+   - Epic retrieval via Jira Retrieval Agent
+   - Epic analysis and story decomposition
+   - Story template generation with AI assistance
 
-3. **Estimation Process**
-   - AI agents evaluate complexity factors
-   - Historical data and patterns are considered
-   - Size estimates with confidence intervals are produced
+3. **Issue Refinement**
+   - Issue retrieval using intelligent agents
+   - Content analysis and enhancement
+   - Technical requirement addition
+   - Quality validation and completion checks
 
-4. **Output Generation**
-   - JIRA tickets are drafted with sizing information
-   - Integration tools handle external system updates
-   - Results are returned to the user
+4. **Estimation Processing**
+   - Complexity analysis across multiple dimensions
+   - AI-powered story point estimation
+   - Confidence level calculation
+   - Risk factor identification and documentation
 
-### Llama Stack Integration Flow
+5. **Output Generation**
+   - Refined ticket creation with enhanced content
+   - Comprehensive estimation reports
+   - Multi-format export (JSON, CSV, Jira-ready)
+   - Integration data preparation
+
+### Agent Interaction Flow
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant App as Application
-    participant LSC as Llama Stack Client
-    participant LSS as Llama Stack Server
-    participant LLM as Language Model
+    participant CLI as CLI Interface
+    participant Stage as Pipeline Stage
+    participant Agent as Llama Stack Agent
+    participant LS as Llama Stack Server
+    participant Jira as Jira API
+    participant Model as AI Model
     
-    User->>App: Submit Feature Description
-    App->>LSC: Create Agent Session
-    LSC->>LSS: Initialize AI Agent
-    LSS->>LLM: Load Model
+    CLI->>Stage: Execute stage command
+    Stage->>Agent: Initialize agent with context
+    Agent->>LS: Create agent session
+    LS->>Model: Load appropriate model
     
-    App->>LSC: Send Refinement Request
-    LSC->>LSS: Process with Agent
-    LSS->>LLM: Generate Refinement
-    LLM-->>LSS: Refined Feature
-    LSS-->>LSC: Return Result
-    LSC-->>App: Refined Feature Data
+    Stage->>Agent: Process issue request
+    Agent->>Jira: Fetch issue data
+    Jira-->>Agent: Return issue information
     
-    App->>LSC: Request Estimation
-    LSC->>LSS: Estimation Agent
-    LSS->>LLM: Analyze Complexity
-    LLM-->>LSS: Size Estimate
-    LSS-->>LSC: Return Estimate
-    LSC-->>App: Final Estimate
+    Agent->>LS: Analyze content with AI
+    LS->>Model: Generate enhancements
+    Model-->>LS: Return refined content
+    LS-->>Agent: Processed results
     
-    App-->>User: Complete Results
+    Agent-->>Stage: Enhanced issue data
+    Stage-->>CLI: Stage completion status
 ```
 
 ## 🔧 Technology Stack
@@ -157,105 +204,111 @@ sequenceDiagram
 ### Core Technologies
 - **Python 3.12+** - Primary development language
 - **Llama Stack** - AI inference and agent framework
-- **uv** - Dependency management and virtual environments
 - **Fire** - Command-line interface generation
+- **uv** - Dependency management
 
 ### AI/ML Components
 - **Llama Models** - Various Llama model variants for different tasks
-- **Ollama** - Local model serving (development)
-- **Vector Databases** - For RAG and context management
-- **Embedding Models** - Text representation and similarity
+- **Ollama** - Local model serving and management
+- **Agent Runtime** - Llama Stack agent execution environment
+- **Prompt Templates** - Structured AI interaction patterns
 
 ### External Integrations
-- **JIRA API** - Project management integration
-- **REST APIs** - Various third-party service integrations
+- **Jira REST API** - Issue retrieval and management
+- **Llama Stack Agents** - Intelligent API interactions
+- **Structured Logging** - Comprehensive operation tracking
+
+## 🏛️ Pipeline Architecture Patterns
+
+### Stage-Based Processing
+Each pipeline stage follows a consistent pattern:
+- **Input Validation** - Ensure data quality and completeness
+- **Agent Initialization** - Set up appropriate Llama Stack agents
+- **Processing Logic** - Execute stage-specific operations
+- **Output Generation** - Produce structured results
+- **Error Handling** - Graceful failure management
+- **Logging Integration** - Comprehensive operation tracking
+
+### Agent Orchestration
+Llama Stack agents are coordinated through:
+- **Session Management** - Efficient agent lifecycle handling
+- **Context Sharing** - Information flow between agents
+- **Result Aggregation** - Combine outputs from multiple agents
+- **Error Recovery** - Handle agent failures gracefully
+
+### Configuration Management
+- **Hierarchical Configuration** - Environment-specific settings
+- **Dynamic Reconfiguration** - Runtime configuration updates
+- **Validation Framework** - Ensure configuration correctness
+- **Secret Management** - Secure credential handling
+
+## 📊 Logging and Monitoring
+
+### Comprehensive Logging System
+- **Structured Logging** - JSON-formatted log entries
+- **Stage Tracking** - Detailed pipeline stage execution
+- **Agent Monitoring** - Llama Stack agent performance tracking
+- **Error Aggregation** - Centralized error collection and analysis
+
+### Performance Metrics
+- **Pipeline Execution Time** - End-to-end processing duration
+- **Stage Performance** - Individual stage execution metrics
+- **Agent Efficiency** - AI agent response times and accuracy
+- **Resource Utilization** - Memory and CPU usage tracking
+
+### Monitoring Integration
+- **Health Checks** - System component status monitoring
+- **Performance Dashboards** - Real-time pipeline metrics
+- **Alert Management** - Proactive issue notification
+- **Audit Trails** - Complete operation history
 
 ## 🔒 Security Considerations
 
 ### Authentication & Authorization
-- API key management for external services
-- Secure credential storage and rotation
-- Role-based access control for different features
+- **Jira API Security** - Secure credential management
+- **Agent Access Control** - Restricted agent capabilities
+- **Configuration Security** - Protected configuration data
+- **Audit Logging** - Complete access tracking
 
 ### Data Privacy
-- Feature descriptions may contain sensitive information
-- Local processing with Llama Stack reduces data exposure
-- Configurable data retention policies
-
-### Model Security
-- Model validation and verification
-- Input sanitization and validation
-- Output filtering for sensitive content
+- **Issue Content Security** - Protect sensitive issue information
+- **Local Processing** - Minimize external data exposure
+- **Secure Storage** - Encrypted local data storage
+- **Data Retention** - Configurable data lifecycle management
 
 ## 📈 Scalability & Performance
 
 ### Horizontal Scaling
-- Llama Stack server can be deployed in multiple instances
-- Load balancing across inference servers
-- Stateless application design for easy scaling
+- **Stage Parallelization** - Concurrent stage execution
+- **Batch Processing** - Efficient bulk operations
+- **Agent Load Balancing** - Distribute agent workload
+- **Resource Optimization** - Dynamic resource allocation
 
 ### Performance Optimization
-- Model caching and warm-up strategies
-- Batch processing for multiple features
-- Asynchronous processing pipelines
+- **Caching Strategies** - Reduce redundant API calls
+- **Lazy Loading** - On-demand resource initialization
+- **Connection Pooling** - Efficient external API usage
+- **Memory Management** - Optimized data structure usage
 
-### Resource Management
-- GPU allocation for model inference
-- Memory management for large contexts
-- CPU optimization for data processing
+## 🔄 Future Architecture Enhancements
 
-## 🔍 Monitoring & Observability
+### Planned Improvements
+- **Multi-Project Support** - Cross-project issue processing
+- **Advanced Analytics** - Historical trend analysis
+- **Real-Time Processing** - Live issue monitoring and refinement
+- **Integration Ecosystem** - Additional tool integrations
 
-### Logging
-- Structured logging throughout the application
-- Llama Stack telemetry integration
-- Performance metrics and timing data
-
-### Health Checks
-- Application health endpoints
-- Llama Stack server status monitoring
-- External service connectivity checks
-
-### Error Handling
-- Graceful degradation for service failures
-- Retry mechanisms with exponential backoff
-- User-friendly error reporting
-
-## 🚀 Deployment Considerations
-
-### Development Environment
-- Local Llama Stack setup with Ollama
-- Development-specific configurations
-- Hot-reload capabilities for rapid iteration
-
-### Production Environment
-- Containerized deployment options
-- Kubernetes deployment strategies
-- Load balancing and auto-scaling
-
-### Configuration Management
-- Environment-specific configurations
-- Secret management integration
-- Feature flags for gradual rollouts
-
-## 🔄 Future Architecture Considerations
-
-### Planned Enhancements
-- Multi-model ensemble approaches
-- Advanced RAG implementations
-- Real-time collaboration features
-- Enhanced JIRA integration
-
-### Extensibility
-- Plugin architecture for new estimation methods
-- Custom prompt template system
-- Additional project management tool integrations
+### Extensibility Framework
+- **Plugin Architecture** - Custom stage and agent development
+- **Custom Prompt System** - Tailored AI interaction patterns
+- **Integration APIs** - External system connectivity
+- **Workflow Customization** - Configurable pipeline flows
 
 ---
 
 For more detailed technical information, see:
-- [Design Decisions](./decisions.md) - Key architectural decisions and rationale
-- [Development Setup](../development/setup.md) - Setting up the development environment
-- [API Documentation](../api/endpoints.md) - API specifications and usage
+- [Pipeline Configuration](../development/pipeline-configuration.md) - Stage configuration and customization
+- [CLI Reference](../user-guide/cli-reference.md) - Command-line interface documentation
+- [Agent Development](../development/agent-development.md) - Custom agent creation
 
-*This architecture is designed to be flexible and extensible, allowing for future enhancements while maintaining compatibility with the [Llama Stack ecosystem](https://llama-stack.readthedocs.io/en/latest/).*
+*This architecture supports the full Jira refinement pipeline while maintaining compatibility with the [Llama Stack ecosystem](https://llama-stack.readthedocs.io/en/latest/) and providing extensive customization options.*
