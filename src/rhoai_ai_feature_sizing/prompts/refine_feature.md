@@ -12,7 +12,7 @@ Fetch Jira issue {{issue_key}} and create a comprehensive RHOAI feature refineme
    - Any linked issues or epics
    - Comments and attachments (if relevant)
 
-2. **Analyze and Transform**: Convert the Jira content into a structured refinement document
+2. **Analyze and Transform**: Convert the Jira content into a structured refinement document; use the component descriptions to refine tasks and assign to the appropriate component team.
 
 3. **Generate Complete Document**: Create the full refinement document using the template structure below
 
