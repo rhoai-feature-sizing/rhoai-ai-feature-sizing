@@ -184,8 +184,16 @@ function RFEBuilderProgress({ event }) {
   );
 }
 
-export default function ArtifactTabs({ artifacts = {}, events = [], onEditArtifact }) {
+export default function ArtifactTabs({ events = [], onEditArtifact }) {
   const [activeTab, setActiveTab] = useState(null);
+
+  // Get artifacts from the custom rfe_artifacts event
+  const artifactEvent = events
+    .filter(e => e.type === 'rfe_artifacts')
+    .slice(-1)[0];
+  
+  const artifacts = artifactEvent?.data?.artifacts || {};
+  const artifactMetadata = artifactEvent?.data?.artifact_metadata || {};
 
   // Set default active tab when artifacts are available
   useEffect(() => {
@@ -249,6 +257,9 @@ export default function ArtifactTabs({ artifacts = {}, events = [], onEditArtifa
           <TabsList className="grid w-full grid-cols-4 h-12 p-1 m-4 mb-0">
             {Object.entries(artifacts).map(([key, content]) => {
               const meta = ARTIFACT_META[key] || ARTIFACT_META.rfe_description;
+              const customMeta = artifactMetadata[key];
+              const displayTitle = customMeta?.title || meta.title;
+              
               return (
                 <TabsTrigger 
                   key={key} 
@@ -256,7 +267,7 @@ export default function ArtifactTabs({ artifacts = {}, events = [], onEditArtifa
                   className="flex items-center gap-2 text-xs"
                 >
                   <meta.icon className="h-3 w-3" />
-                  <span className="hidden sm:inline">{meta.title}</span>
+                  <span className="hidden sm:inline">{displayTitle}</span>
                 </TabsTrigger>
               );
             })}

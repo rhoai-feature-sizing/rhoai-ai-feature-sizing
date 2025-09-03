@@ -3,15 +3,25 @@ name: rhoai-ai-feature-sizing
 control-plane:
   port: 4501
 
-default-service: rfe-builder-workflow
+default-service: rfe-investigation-workflow
 
 services:
-  rfe-builder-workflow:
-    name: RFE Builder Workflow
+  rfe-investigation-workflow:
+    name: RFE Investigation Workflow
     source:
       type: local
       name: src
-    path: src/rfe_builder_workflow:rfe_builder_workflow
+    path: src/rfe_investigation_workflow:rfe_investigation_workflow
+    python-dependencies:
+      - llama-index-llms-openai>=0.3.2
+      - llama-index-core>=0.12.0
+      - pyyaml>=6.0
+  artifact-generation-workflow:
+    name: Artifact Generation Workflow
+    source:
+      type: local
+      name: src
+    path: src/artifact_generation_workflow:artifact_generation_workflow
     python-dependencies:
       - llama-index-llms-openai>=0.3.2
       - llama-index-core>=0.12.0

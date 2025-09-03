@@ -47,6 +47,9 @@ class ArtifactEditRequest(BaseModel):
     artifact_type: str = Field(description="Type of artifact to edit")
     edit_instruction: str = Field(description="What changes to make")
     current_content: str = Field(description="Current artifact content")
+    artifacts_context: Optional[Dict[str, str]] = Field(
+        default=None, description="All artifacts context"
+    )
 
 
 class EditAnalysisEvent(Event):
@@ -157,18 +160,33 @@ class ArtifactEditorWorkflow(Workflow):
 
         title = title_map.get(ev.edit_request.artifact_type, "Document")
 
-        # Emit the updated artifact
+        # Get the existing artifacts and update the specific one
+        artifacts = ev.edit_request.artifacts_context or {}
+        artifacts[ev.edit_request.artifact_type] = ev.updated_content
+
+        # Emit updated artifacts event for tabbed display
         ctx.write_event_to_stream(
-            ArtifactEvent(
-                data=Artifact(
-                    type=ArtifactType.DOCUMENT,
-                    created_at=int(time.time()),
-                    data=DocumentArtifactData(
-                        title=title,
-                        content=ev.updated_content,
-                        type="markdown",
-                    ),
-                ),
+            UIEvent(
+                type="rfe_artifacts",
+                data={
+                    "artifacts": artifacts,
+                    "artifact_metadata": {
+                        "rfe_description": {
+                            "title": "RFE Description",
+                            "icon": "FileText",
+                        },
+                        "feature_refinement": {
+                            "title": "Feature Refinement",
+                            "icon": "Workflow",
+                        },
+                        "architecture": {"title": "Architecture", "icon": "Building2"},
+                        "epics_stories": {
+                            "title": "Epics & Stories",
+                            "icon": "ListChecks",
+                        },
+                    },
+                    "updated_artifact": ev.edit_request.artifact_type,
+                },
             )
         )
 
@@ -262,6 +280,7 @@ The updated document is now available in the artifacts panel. You can continue m
             artifact_type=artifact_type,
             edit_instruction=edit_instruction,
             current_content=current_content,
+            artifacts_context=artifacts,
         )
 
     async def _analyze_changes(self, edit_request: ArtifactEditRequest) -> str:

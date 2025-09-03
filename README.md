@@ -111,7 +111,7 @@ curl -X POST 'http://localhost:4501/deployments/rhoai-ai-feature-sizing/tasks/cr
   -H 'Content-Type: application/json' \
   -d '{
     "input": "{\"user_msg\":\"Hello\",\"chat_history\":[]}",
-    "service_id": "rfe-builder-workflow"
+    "service_id": "rfe-investigation-workflow"
   }'
 ```
 
@@ -126,8 +126,41 @@ Note that the task_id and session_id are returned when creating a new task.
 
 ## Use Case
 
-We have prepared a comprehensive RFE Builder workflow system that helps you interactively build RFEs with multi-agent collaboration, generate multiple artifacts, and edit them through chat.
-The main workflow is in [`src/rfe_builder_workflow.py`](src/rfe_builder_workflow.py).
+We have prepared a comprehensive RFE system with three specialized workflows that work together to help you create and refine RFE documents:
+
+## **🔍 Three-Workflow Architecture**
+
+### **1. RFE Investigation Workflow** (Default)
+Interactive conversation with AI agents to develop a comprehensive RFE document.
+- **Real back-and-forth chat** with specialized agents (Product Owner, Engineers, etc.)
+- **Agent insights and questions** to help flesh out requirements
+- **Iterative refinement** until RFE is complete
+- **Outputs**: Single, comprehensive RFE document
+
+### **2. Artifact Generation Workflow**
+Automatically generates supporting documents from a completed RFE.
+- **Input**: Completed RFE document
+- **Generates**: Feature Refinement, Architecture, and Epics & Stories documents
+- **Tabbed Interface**: All artifacts appear as tabs in the right panel
+- **Outputs**: 3 additional supporting documents
+
+### **3. Artifact Editor Workflow**
+Chat-based editing of any generated document.
+- **Interactive editing**: "Edit the architecture to add more security details"
+- **Maintains tab structure** when updating documents
+- **Works with all artifact types**
+
+## **🚀 How to Use**
+
+1. **Start with Investigation**: "I want to add real-time notifications to our platform"
+2. **Collaborate with Agents**: Answer questions, refine requirements
+3. **Generate Artifacts**: "Generate artifacts for my completed RFE"
+4. **Edit as Needed**: "Edit the architecture document to include WebSocket details"
+
+The workflows are in:
+- [`src/rfe_investigation_workflow.py`](src/rfe_investigation_workflow.py) (Default)
+- [`src/artifact_generation_workflow.py`](src/artifact_generation_workflow.py)
+- [`src/artifact_editor_workflow.py`](src/artifact_editor_workflow.py)
 
 ## Customize the UI
 
