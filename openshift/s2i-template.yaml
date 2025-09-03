@@ -1,0 +1,209 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: ${NAME}-s2i
+  annotations:
+    description: Source-to-Image (S2I) build and deploy for RHOAI AI Feature Sizing backend
+parameters:
+  - name: NAME
+    displayName: Application Name
+    required: true
+    value: rhoai-ai-feature-sizing
+  - name: GIT_REPO
+    displayName: Git Repository URL
+    required: true
+    value: https://github.com/your-org/rhoai-ai-feature-sizing.git
+  - name: GIT_REF
+    displayName: Git Reference (branch/tag)
+    required: true
+    value: main
+  - name: CONTEXT_DIR
+    displayName: Context Directory
+    required: true
+    value: .
+  - name: BUILDER_IMAGE
+    displayName: Python S2I Builder Image
+    required: true
+    value: registry.redhat.io/ubi9/python-311:latest
+  - name: APP_PORT
+    displayName: Application Port
+    required: true
+    value: "4501"
+  - name: ROUTE_HOST
+    displayName: Route Host (leave empty for auto)
+    required: false
+  - name: OPENAI_API_KEY
+    displayName: OPENAI API Key
+    required: false
+  - name: ANTHROPIC_API_KEY
+    displayName: ANTHROPIC API Key
+    required: false
+  - name: OLLAMA_BASE_URL
+    displayName: OLLAMA Base URL
+    required: false
+  - name: NODE_ENV
+    displayName: Node Environment
+    required: false
+    value: production
+objects:
+  - apiVersion: v1
+    kind: ImageStream
+    metadata:
+      name: ${NAME}
+      labels:
+        app: ${NAME}
+
+  - apiVersion: build.openshift.io/v1
+    kind: BuildConfig
+    metadata:
+      name: ${NAME}
+      labels:
+        app: ${NAME}
+    spec:
+      output:
+        to:
+          kind: ImageStreamTag
+          name: ${NAME}:latest
+      source:
+        type: Git
+        git:
+          uri: ${GIT_REPO}
+          ref: ${GIT_REF}
+        contextDir: ${CONTEXT_DIR}
+      strategy:
+        type: Source
+        sourceStrategy:
+          from:
+            kind: DockerImage
+            name: ${BUILDER_IMAGE}
+          env:
+            - name: PIP_NO_CACHE_DIR
+              value: "1"
+            - name: ENABLE_PIPENV
+              value: "0"
+      triggers:
+        - type: ConfigChange
+        - type: ImageChange
+
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: ${NAME}-secrets
+      labels:
+        app: ${NAME}
+    type: Opaque
+    stringData:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: ${NAME}
+      labels:
+        app: ${NAME}
+    spec:
+      selector:
+        app: ${NAME}
+      ports:
+        - name: http
+          port: 80
+          targetPort: ${APP_PORT}
+          protocol: TCP
+
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      name: ${NAME}
+      labels:
+        app: ${NAME}
+    spec:
+      replicas: 1
+      selector:
+        app: ${NAME}
+      strategy:
+        type: Rolling
+      template:
+        metadata:
+          labels:
+            app: ${NAME}
+        spec:
+          containers:
+            - name: ${NAME}
+              image: ""
+              imagePullPolicy: IfNotPresent
+              ports:
+                - containerPort: ${APP_PORT}
+                  protocol: TCP
+              env:
+                - name: PORT
+                  value: ${APP_PORT}
+                - name: NODE_ENV
+                  value: ${NODE_ENV}
+                - name: OPENAI_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}-secrets
+                      key: OPENAI_API_KEY
+                - name: ANTHROPIC_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}-secrets
+                      key: ANTHROPIC_API_KEY
+                - name: OLLAMA_BASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}-secrets
+                      key: OLLAMA_BASE_URL
+              readinessProbe:
+                httpGet:
+                  path: /docs
+                  port: ${APP_PORT}
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                timeoutSeconds: 3
+                failureThreshold: 3
+              livenessProbe:
+                tcpSocket:
+                  port: ${APP_PORT}
+                initialDelaySeconds: 20
+                periodSeconds: 10
+                timeoutSeconds: 3
+                failureThreshold: 3
+              command:
+                - /bin/bash
+                - -lc
+                - "python -m llama_deploy.apiserver"
+          restartPolicy: Always
+      triggers:
+        - type: ImageChange
+          imageChangeParams:
+            automatic: true
+            containerNames:
+              - ${NAME}
+            from:
+              kind: ImageStreamTag
+              name: ${NAME}:latest
+        - type: ConfigChange
+
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      name: ${NAME}
+      labels:
+        app: ${NAME}
+      annotations:
+        description: Exposes the LlamaDeploy API and UI. UI available at /deployments/${NAME}/ui
+    spec:
+      host: ${ROUTE_HOST}
+      to:
+        kind: Service
+        name: ${NAME}
+        weight: 100
+      port:
+        targetPort: http
+      tls:
+        termination: edge
+      wildcardPolicy: None
+
