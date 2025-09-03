@@ -189,7 +189,7 @@ export default function ArtifactTabs({ events = [], onEditArtifact }) {
 
   // Get artifacts from the custom rfe_artifacts event
   const artifactEvent = events
-    .filter(e => e.type === 'rfe_artifacts')
+    .filter(e => e && e.type === 'rfe_artifacts')
     .slice(-1)[0];
   
   const artifacts = artifactEvent?.data?.artifacts || {};
@@ -205,7 +205,7 @@ export default function ArtifactTabs({ events = [], onEditArtifact }) {
 
   // Get the latest progress event
   const latestProgressEvent = events
-    .filter(e => e.type === 'rfe_builder_progress')
+    .filter(e => e && e.type === 'rfe_builder_progress')
     .slice(-1)[0]?.data;
 
   const artifactCount = Object.keys(artifacts).length;

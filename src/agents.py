@@ -160,12 +160,42 @@ class RFEAgentManager:
         return None
 
     async def analyze_rfe(
-        self, persona: str, rfe_description: str, config: Dict
+        self, persona: str, rfe_description: str, config: Dict, ctx=None
     ) -> Dict[str, Any]:
         """Analyze RFE with specific agent persona"""
         print(f"🔍 {persona} analyzing RFE...")
 
+        # Stream UI event for agent analysis start
+        if ctx:
+            from src.rfe_investigation_workflow import InvestigationUIEventData
+            from llama_index.core.chat_ui.events import UIEvent
+
+            ctx.write_event_to_stream(
+                UIEvent(
+                    type="investigation_progress",
+                    data=InvestigationUIEventData(
+                        stage="agent_analysis",
+                        description=f"🤖 {persona} is analyzing your RFE...",
+                        agent_persona=persona,
+                        streaming_type="reasoning",
+                    ),
+                )
+            )
+
         # Get relevant context from agent's knowledge base
+        if ctx:
+            ctx.write_event_to_stream(
+                UIEvent(
+                    type="investigation_progress",
+                    data=InvestigationUIEventData(
+                        stage="retrieving_knowledge",
+                        description=f"📚 {persona} is retrieving relevant knowledge...",
+                        agent_persona=persona,
+                        streaming_type="reasoning",
+                    ),
+                )
+            )
+
         index = await self.get_agent_index(persona)
         context = "No specific knowledge base available."
 
@@ -176,8 +206,33 @@ class RFEAgentManager:
                 if nodes:
                     context = "\n\n".join([node.node.get_content() for node in nodes])
                     print(f"📚 Retrieved {len(nodes)} relevant documents for {persona}")
+
+                    if ctx:
+                        ctx.write_event_to_stream(
+                            UIEvent(
+                                type="investigation_progress",
+                                data=InvestigationUIEventData(
+                                    stage="processing_knowledge",
+                                    description=f"🧠 {persona} found {len(nodes)} relevant documents and is processing insights...",
+                                    agent_persona=persona,
+                                    streaming_type="reasoning",
+                                ),
+                            )
+                        )
             except Exception as e:
                 print(f"❌ Error retrieving context for {persona}: {e}")
+                if ctx:
+                    ctx.write_event_to_stream(
+                        UIEvent(
+                            type="investigation_progress",
+                            data=InvestigationUIEventData(
+                                stage="knowledge_fallback",
+                                description=f"⚠️ {persona} proceeding with general knowledge (knowledge base unavailable)",
+                                agent_persona=persona,
+                                streaming_type="reasoning",
+                            ),
+                        )
+                    )
 
         # Use the persona's analysis prompt or fallback
         analysis_prompt_config = config.get("analysisPrompt", {})
@@ -198,27 +253,236 @@ class RFEAgentManager:
                 },
             )
 
-        try:
-            # Create PromptTemplate for structured prediction
-            if analysis_prompt_config and "template" in analysis_prompt_config:
-                # Use the agent's custom prompt template
-                prompt_template = PromptTemplate(analysis_prompt_config["template"])
-                response = await Settings.llm.astructured_predict(
-                    RFEAnalysis,
-                    prompt_template,
-                    rfe_description=rfe_description,
-                    context=context,
-                    persona=persona,
+        # Stream UI event for LLM analysis
+        if ctx:
+            ctx.write_event_to_stream(
+                UIEvent(
+                    type="investigation_progress",
+                    data=InvestigationUIEventData(
+                        stage="llm_reasoning",
+                        description=f"🧠 {persona} is analyzing requirements and generating insights...",
+                        agent_persona=persona,
+                        streaming_type="reasoning",
+                    ),
                 )
-            else:
-                # Use fallback prompt template
-                prompt_template = PromptTemplate(prompt)
-                response = await Settings.llm.astructured_predict(
-                    RFEAnalysis, prompt_template
+            )
+
+        print(f"🧠 {persona} starting LLM analysis...")
+        print(f"🧠 LLM model: {Settings.llm.model}")
+        print(f"🧠 LLM streaming: {getattr(Settings.llm, 'streaming', 'unknown')}")
+        print(f"🧠 Analysis prompt config: {analysis_prompt_config}")
+        print(f"🧠 RFE description length: {len(rfe_description)}")
+        print(f"🧠 Context length: {len(context)}")
+
+        try:
+            # Single Phase: Streaming Structured Prediction - Stream the analysis directly
+            if ctx:
+                ctx.write_event_to_stream(
+                    UIEvent(
+                        type="investigation_progress",
+                        data=InvestigationUIEventData(
+                            stage="streaming_analysis",
+                            description=f"🧠 {persona} is analyzing and streaming insights...",
+                            agent_persona=persona,
+                            streaming_type="reasoning",
+                        ),
+                    )
                 )
 
+            # Create the analysis prompt (use custom template if available, otherwise fallback)
+            if analysis_prompt_config and "template" in analysis_prompt_config:
+                print(f"🧠 {persona} using custom structured streaming template")
+                analysis_template = PromptTemplate(analysis_prompt_config["template"])
+                template_vars = {
+                    "rfe_description": rfe_description,
+                    "context": context,
+                    "persona": persona,
+                }
+            else:
+                print(f"🧠 {persona} using fallback structured streaming template")
+                fallback_template = f"""
+                As a {persona} expert, analyze this RFE and provide your insights.
+                
+                RFE: {rfe_description}
+                Context: {context}
+                
+                Think through this step by step and provide a structured analysis covering:
+                - Your detailed technical analysis from a {persona} perspective
+                - Complexity assessment (LOW/MEDIUM/HIGH/UNKNOWN) 
+                - Main concerns or risks you identify
+                - Your recommendations for implementation
+                - Required components or systems needed
+                
+                Be thorough in your analysis and reasoning.
+                """
+                analysis_template = PromptTemplate(fallback_template)
+                template_vars = {}
+
+            print(f"🧠 {persona} starting streaming structured prediction...")
+
+            # Track reasoning text for UI display
+            reasoning_text = ""
+
+            try:
+                # Use streaming structured prediction directly
+
+                testllm = await Settings.llm.apredict(
+                    analysis_template, **template_vars
+                )
+                print(f"🧠 {persona} streaming structured analysis: {testllm}")
+
+                stream_output = await Settings.llm.astream_structured_predict(
+                    RFEAnalysis, analysis_template, **template_vars
+                )
+
+                response = None
+                partial_count = 0
+
+                print(f"🧠 {persona} streaming structured analysis started")
+
+                # Iterate through partial outputs
+                async for partial_output in stream_output:
+                    partial_count += 1
+                    print(
+                        f"🧠 {persona} partial {partial_count}: {type(partial_output)}"
+                    )
+
+                    # Build reasoning text from partial outputs
+                    if hasattr(partial_output, "analysis") and partial_output.analysis:
+                        # Use the analysis field as our reasoning text
+                        current_text = partial_output.analysis
+                        if current_text != reasoning_text:  # Only update if changed
+                            reasoning_text = current_text
+                            print(
+                                f"🧠 {persona} updated reasoning text length: {len(reasoning_text)}"
+                            )
+
+                            # Send UI updates with current analysis text
+                            if ctx:
+                                ctx.write_event_to_stream(
+                                    UIEvent(
+                                        type="reasoning_text_stream",
+                                        data={
+                                            "agent_persona": persona,
+                                            "current_text": reasoning_text,
+                                            "is_complete": False,
+                                        },
+                                    )
+                                )
+
+                    # Store the latest partial as final (will be most complete)
+                    response = partial_output
+
+                print(f"🧠 {persona} received {partial_count} partial outputs total")
+                print(f"🧠 {persona} streaming structured prediction completed")
+
+                # Send final reasoning text
+                if ctx:
+                    ctx.write_event_to_stream(
+                        UIEvent(
+                            type="reasoning_text_stream",
+                            data={
+                                "agent_persona": persona,
+                                "current_text": reasoning_text,
+                                "is_complete": True,
+                            },
+                        )
+                    )
+
+            except Exception as e:
+                print(f"🧠 {persona} streaming structured prediction failed: {e}")
+
+                # Fallback to regular structured prediction
+                if ctx:
+                    ctx.write_event_to_stream(
+                        UIEvent(
+                            type="investigation_progress",
+                            data=InvestigationUIEventData(
+                                stage="llm_fallback",
+                                description=f"⏰ {persona} using non-streaming structured analysis...",
+                                agent_persona=persona,
+                                streaming_type="reasoning",
+                            ),
+                        )
+                    )
+
+                # Create non-streaming LLM for fallback
+                from llama_index.llms.openai import OpenAI
+                import os
+
+                fallback_llm = OpenAI(
+                    model="gpt-4",
+                    temperature=0.1,
+                    api_key=os.getenv("OPENAI_API_KEY"),
+                    streaming=False,
+                )
+
+                response = await fallback_llm.astructured_predict(
+                    RFEAnalysis, analysis_template, **template_vars
+                )
+
+                # Generate some reasoning text for UI
+                reasoning_text = f"Analysis completed using {persona} expertise. Complexity assessment: {getattr(response, 'estimatedComplexity', 'UNKNOWN')}"
+
+                # Send reasoning text to UI
+                if ctx:
+                    ctx.write_event_to_stream(
+                        UIEvent(
+                            type="reasoning_text_stream",
+                            data={
+                                "agent_persona": persona,
+                                "current_text": reasoning_text,
+                                "is_complete": True,
+                            },
+                        )
+                    )
+
+            print(f"🧠 {persona} completed analysis")
+            print(f"🧠 Reasoning captured: {len(reasoning_text)} characters")
+
             # Ensure persona is set correctly
-            response.persona = persona
+            if response:
+                response.persona = persona
+
+        except Exception as e:
+            print(f"❌ Error during {persona} streaming analysis: {e}")
+
+            # Fallback to simple structured prediction on error
+            if ctx:
+                ctx.write_event_to_stream(
+                    UIEvent(
+                        type="investigation_progress",
+                        data=InvestigationUIEventData(
+                            stage="llm_fallback",
+                            description=f"⚠️ {persona} switching to fallback analysis due to error...",
+                            agent_persona=persona,
+                            streaming_type="reasoning",
+                        ),
+                    )
+                )
+
+            # Simple fallback response
+            response = RFEAnalysis(
+                analysis=f"Basic analysis completed for {persona}. Error occurred during detailed reasoning: {str(e)}",
+                persona=persona,
+                estimatedComplexity="MEDIUM",
+                concerns=["Detailed analysis unavailable due to technical issue"],
+                recommendations=["Manual review recommended"],
+                requiredComponents=["To be determined"],
+            )
+            print(f"🧠 {persona} created fallback response due to error")
+            if ctx:
+                ctx.write_event_to_stream(
+                    UIEvent(
+                        type="investigation_progress",
+                        data=InvestigationUIEventData(
+                            stage="analysis_complete",
+                            description=f"✅ {persona} completed analysis with complexity: {response.estimatedComplexity}",
+                            agent_persona=persona,
+                            streaming_type="reasoning",
+                        ),
+                    )
+                )
 
             print(f"✅ {persona} analysis complete")
             # Convert Pydantic model to dict for backward compatibility
@@ -226,6 +490,21 @@ class RFEAgentManager:
 
         except Exception as e:
             print(f"❌ Error generating analysis for {persona}: {e}")
+
+            # Stream error event
+            if ctx:
+                ctx.write_event_to_stream(
+                    UIEvent(
+                        type="investigation_progress",
+                        data=InvestigationUIEventData(
+                            stage="analysis_error",
+                            description=f"❌ {persona} encountered an error during analysis: {str(e)}",
+                            agent_persona=persona,
+                            streaming_type="reasoning",
+                        ),
+                    )
+                )
+
             # Return structured fallback using the Pydantic model
             fallback = RFEAnalysis(
                 analysis=f"Error during analysis: {str(e)}",

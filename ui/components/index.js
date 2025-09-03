@@ -3,12 +3,14 @@ import WorkflowProgress from './workflow_progress.jsx';
 import ArtifactTabs from './artifact_tabs.jsx';
 import RFEBuilderProgress from './rfe_builder_progress.jsx';
 import InvestigationProgress from './investigation_progress.jsx';
+import ReasoningStream from './reasoning_stream.jsx';
 
 export {
   WorkflowProgress,
   ArtifactTabs,
   RFEBuilderProgress,
   InvestigationProgress,
+  ReasoningStream,
 };
 
 // Default export for convenience
@@ -17,4 +19,5 @@ export default {
   ArtifactTabs,
   RFEBuilderProgress,
   InvestigationProgress,
+  ReasoningStream,
 };

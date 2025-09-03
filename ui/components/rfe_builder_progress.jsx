@@ -249,7 +249,9 @@ function RFEBuilderProgressCard({ event }) {
 export default function Component({ events }) {
   const aggregateEvents = () => {
     if (!events || events.length === 0) return null;
-    const rfeBuilderEvents = events.filter(e => e.type === 'rfe_builder_progress');
+    
+    // LlamaIndex server pre-processes events - look for rfe_builder_progress type events
+    const rfeBuilderEvents = events.filter(e => e && e.type === 'rfe_builder_progress');
     return rfeBuilderEvents[rfeBuilderEvents.length - 1]?.data;
   };
 

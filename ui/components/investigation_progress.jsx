@@ -30,6 +30,127 @@ const STAGE_META = {
     badge: "bg-purple-100 text-purple-700",
     progress: 30
   },
+  // New detailed agent reasoning stages
+  agent_analysis: {
+    icon: Brain,
+    title: "Agent Starting Analysis",
+    gradient: "from-purple-100 via-purple-50 to-white",
+    iconBg: "bg-purple-100 text-purple-600",
+    badge: "bg-purple-100 text-purple-700",
+    progress: 25
+  },
+  retrieving_knowledge: {
+    icon: Brain,
+    title: "Retrieving Knowledge",
+    gradient: "from-indigo-100 via-indigo-50 to-white",
+    iconBg: "bg-indigo-100 text-indigo-600",
+    badge: "bg-indigo-100 text-indigo-700",
+    progress: 30
+  },
+  processing_knowledge: {
+    icon: Brain,
+    title: "Processing Knowledge",
+    gradient: "from-purple-100 via-purple-50 to-white",
+    iconBg: "bg-purple-100 text-purple-600",
+    badge: "bg-purple-100 text-purple-700",
+    progress: 35
+  },
+  knowledge_fallback: {
+    icon: Brain,
+    title: "Using General Knowledge",
+    gradient: "from-yellow-100 via-yellow-50 to-white",
+    iconBg: "bg-yellow-100 text-yellow-600",
+    badge: "bg-yellow-100 text-yellow-700",
+    progress: 32
+  },
+  llm_reasoning: {
+    icon: Brain,
+    title: "Agent Reasoning",
+    gradient: "from-purple-100 via-purple-50 to-white",
+    iconBg: "bg-purple-100 text-purple-600",
+    badge: "bg-purple-100 text-purple-700",
+    progress: 40
+  },
+  reasoning_stream: {
+    icon: Brain,
+    title: "Agent Thinking",
+    gradient: "from-indigo-100 via-indigo-50 to-white",
+    iconBg: "bg-indigo-100 text-indigo-600",
+    badge: "bg-indigo-100 text-indigo-700",
+    progress: 42
+  },
+  streaming_analysis: {
+    icon: Brain,
+    title: "Streaming Analysis",
+    gradient: "from-purple-100 via-purple-50 to-white",
+    iconBg: "bg-purple-100 text-purple-600",
+    badge: "bg-purple-100 text-purple-700",
+    progress: 40
+  },
+  structuring_analysis: {
+    icon: Brain,
+    title: "Structuring Analysis",
+    gradient: "from-violet-100 via-violet-50 to-white",
+    iconBg: "bg-violet-100 text-violet-600",
+    badge: "bg-violet-100 text-violet-700",
+    progress: 45
+  },
+  llm_fallback: {
+    icon: Brain,
+    title: "Using Fallback Approach",
+    gradient: "from-amber-100 via-amber-50 to-white",
+    iconBg: "bg-amber-100 text-amber-600",
+    badge: "bg-amber-100 text-amber-700",
+    progress: 42
+  },
+  analysis_complete: {
+    icon: CheckCircle,
+    title: "Analysis Complete",
+    gradient: "from-green-100 via-green-50 to-white",
+    iconBg: "bg-green-100 text-green-600",
+    badge: "bg-green-100 text-green-700",
+    progress: 45
+  },
+  analysis_error: {
+    icon: Brain,
+    title: "Analysis Error",
+    gradient: "from-red-100 via-red-50 to-white",
+    iconBg: "bg-red-100 text-red-600",
+    badge: "bg-red-100 text-red-700",
+    progress: 30
+  },
+  generating_questions: {
+    icon: Brain,
+    title: "Generating Questions",
+    gradient: "from-cyan-100 via-cyan-50 to-white",
+    iconBg: "bg-cyan-100 text-cyan-600",
+    badge: "bg-cyan-100 text-cyan-700",
+    progress: 60
+  },
+  questions_generated: {
+    icon: CheckCircle,
+    title: "Questions Ready",
+    gradient: "from-green-100 via-green-50 to-white",
+    iconBg: "bg-green-100 text-green-600",
+    badge: "bg-green-100 text-green-700",
+    progress: 65
+  },
+  assessing: {
+    icon: Brain,
+    title: "Assessing Completeness",
+    gradient: "from-teal-100 via-teal-50 to-white",
+    iconBg: "bg-teal-100 text-teal-600",
+    badge: "bg-teal-100 text-teal-700",
+    progress: 75
+  },
+  creating_rfe: {
+    icon: FileText,
+    title: "Creating RFE Document",
+    gradient: "from-violet-100 via-violet-50 to-white",
+    iconBg: "bg-violet-100 text-violet-600",
+    badge: "bg-violet-100 text-violet-700",
+    progress: 85
+  },
   waiting_for_user: {
     icon: MessageSquare,
     title: "Your Turn to Respond",
@@ -53,6 +174,14 @@ const STAGE_META = {
     iconBg: "bg-violet-100 text-violet-600",
     badge: "bg-violet-100 text-violet-700",
     progress: 90
+  },
+  refining: {
+    icon: FileText,
+    title: "Refining RFE",
+    gradient: "from-orange-100 via-orange-50 to-white",
+    iconBg: "bg-orange-100 text-orange-600",
+    badge: "bg-orange-100 text-orange-700",
+    progress: 80
   },
   completed: {
     icon: CheckCircle,
@@ -81,7 +210,11 @@ function InvestigationProgressCard({ event }) {
   const { stage, description, agent_persona, streaming_type } = event;
   const meta = STAGE_META[stage] || STAGE_META.starting;
   
-  const isAnimating = stage === "analyzing" || stage === "processing" || stage === "starting";
+  const isAnimating = stage === "analyzing" || stage === "processing" || stage === "starting" ||
+    stage === "agent_analysis" || stage === "retrieving_knowledge" || stage === "processing_knowledge" ||
+    stage === "llm_reasoning" || stage === "reasoning_stream" || stage === "streaming_analysis" ||
+    stage === "structuring_analysis" || stage === "llm_fallback" || stage === "generating_questions" || 
+    stage === "assessing" || stage === "creating_rfe" || stage === "refining";
 
   return (
     <div className="flex min-h-[180px] w-full items-center justify-center py-2">
@@ -166,12 +299,44 @@ function getDefaultDescription(stage) {
       return "Initializing RFE investigation with AI agents...";
     case "analyzing": 
       return "Agent is analyzing your idea and preparing questions...";
+    case "agent_analysis":
+      return "Agent is beginning detailed analysis of your RFE idea...";
+    case "retrieving_knowledge":
+      return "Agent is searching through knowledge base for relevant information...";
+    case "processing_knowledge":
+      return "Agent is processing retrieved documents and extracting insights...";
+    case "knowledge_fallback":
+      return "Agent is proceeding with general knowledge (knowledge base unavailable)...";
+    case "llm_reasoning":
+      return "Agent is reasoning through requirements and generating insights...";
+    case "reasoning_stream":
+      return "Agent is thinking out loud and working through the analysis step by step...";
+    case "streaming_analysis":
+      return "Agent is performing structured analysis with real-time insights...";
+    case "structuring_analysis":
+      return "Agent is organizing insights into structured analysis format...";
+    case "llm_fallback":
+      return "Agent is using an alternative approach to complete the analysis...";
+    case "analysis_complete":
+      return "Agent has completed analysis and determined complexity level...";
+    case "analysis_error":
+      return "Agent encountered an error during analysis, falling back to manual review...";
+    case "generating_questions":
+      return "Agent is analyzing conversation gaps and generating follow-up questions...";
+    case "questions_generated":
+      return "Agent has prepared follow-up questions to refine your RFE...";
+    case "assessing":
+      return "Agent is assessing if we have enough information for the RFE document...";
+    case "creating_rfe":
+      return "Agent is writing the comprehensive RFE document...";
     case "waiting_for_user":
       return "Waiting for your response to continue the investigation...";
     case "processing":
       return "Processing your response and updating the RFE draft..."; 
     case "finalizing":
       return "Creating the final RFE document...";
+    case "refining":
+      return "Agent is refining the RFE document based on your feedback...";
     case "completed":
       return "RFE investigation complete! You can now generate artifacts or continue refining.";
     default:
@@ -182,7 +347,20 @@ function getDefaultDescription(stage) {
 export default function Component({ events }) {
   const aggregateEvents = () => {
     if (!events || events.length === 0) return null;
-    const investigationEvents = events.filter(e => e.type === 'investigation_progress');
+    
+    // LlamaIndex server pre-processes events for us - they come as direct data objects
+    const normalizedEvents = events.map(e => {
+      // Check if this is investigation progress data directly
+      if (e && typeof e === 'object' && (e.stage || e.agent_persona)) {
+        return {
+          type: 'investigation_progress',
+          data: e
+        };
+      }
+      return e;  // Return as-is
+    });
+    
+    const investigationEvents = normalizedEvents.filter(e => e.type === 'investigation_progress');
     return investigationEvents[investigationEvents.length - 1]?.data;
   };
 

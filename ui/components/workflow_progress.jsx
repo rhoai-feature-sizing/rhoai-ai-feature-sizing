@@ -173,6 +173,8 @@ function WorkflowProgressCard({ event }) {
 export default function Component({ events }) {
   const aggregateEvents = () => {
     if (!events || events.length === 0) return null;
+    
+    // LlamaIndex server pre-processes events for us
     return events[events.length - 1];
   };
 
