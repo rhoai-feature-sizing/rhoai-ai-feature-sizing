@@ -14,8 +14,10 @@ import {
   Edit3,
   Download,
   Copy,
-  Check
+  Check,
+  Send
 } from "lucide-react";
+
 
 const ARTIFACT_META = {
   rfe_description: {
@@ -44,8 +46,677 @@ const ARTIFACT_META = {
   }
 };
 
+// Inlined JiraPublisher to comply with import restrictions
+const ISSUE_TYPES = [
+  { value: "Epic", label: "Epic", icon: "🎯" },
+  { value: "Story", label: "Story", icon: "📖" },
+  { value: "Task", label: "Task", icon: "✅" },
+  { value: "Bug", label: "Bug", icon: "🐛" },
+  { value: "Improvement", label: "Improvement", icon: "✨" },
+];
+
+const ARTIFACT_TO_ISSUE_TYPE = {
+  rfe_description: "Epic",
+  feature_refinement: "Story",
+  architecture: "Task",
+  epics_stories: "Epic",
+};
+
+const getStoredJiraConfig = () => {
+  try {
+    const stored = localStorage.getItem('jiraConfig');
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error('Failed to load stored JIRA config:', e);
+  }
+  return {
+    domain: "",
+    email: "",
+    apiToken: "",
+  };
+};
+
+const saveJiraConfig = (config) => {
+  try {
+    localStorage.setItem('jiraConfig', JSON.stringify(config));
+  } catch (e) {
+    console.error('Failed to save JIRA config:', e);
+  }
+};
+
+const modalStyles = {
+  overlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+  },
+  content: {
+    backgroundColor: "white",
+    borderRadius: "8px",
+    padding: "24px",
+    maxWidth: "525px",
+    width: "90%",
+    maxHeight: "90vh",
+    overflow: "auto",
+    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+  },
+  header: {
+    marginBottom: "20px",
+  },
+  title: {
+    fontSize: "20px",
+    fontWeight: "600",
+    marginBottom: "8px",
+    color: "#111827",
+  },
+  description: {
+    fontSize: "14px",
+    color: "#6B7280",
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  fieldGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  label: {
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#374151",
+  },
+  required: {
+    color: "#EF4444",
+  },
+  input: {
+    padding: "8px 12px",
+    borderRadius: "6px",
+    border: "1px solid #D1D5DB",
+    fontSize: "14px",
+    outline: "none",
+    transition: "border-color 0.2s",
+  },
+  select: {
+    padding: "8px 12px",
+    borderRadius: "6px",
+    border: "1px solid #D1D5DB",
+    fontSize: "14px",
+    outline: "none",
+    backgroundColor: "white",
+    cursor: "pointer",
+  },
+  footer: {
+    display: "flex",
+    gap: "12px",
+    justifyContent: "flex-end",
+    marginTop: "24px",
+  },
+  button: {
+    padding: "8px 16px",
+    borderRadius: "6px",
+    fontSize: "14px",
+    fontWeight: "500",
+    border: "none",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    transition: "all 0.2s",
+  },
+  primaryButton: {
+    backgroundColor: "#3B82F6",
+    color: "white",
+  },
+  secondaryButton: {
+    backgroundColor: "white",
+    color: "#374151",
+    border: "1px solid #D1D5DB",
+  },
+  disabledButton: {
+    opacity: 0.5,
+    cursor: "not-allowed",
+  },
+  alert: {
+    padding: "12px",
+    borderRadius: "6px",
+    fontSize: "14px",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  errorAlert: {
+    backgroundColor: "#FEE2E2",
+    color: "#991B1B",
+    border: "1px solid #FECACA",
+  },
+  successAlert: {
+    backgroundColor: "#D1FAE5",
+    color: "#065F46",
+    border: "1px solid #A7F3D0",
+  },
+  warningAlert: {
+    backgroundColor: "#FEF3C7",
+    color: "#92400E",
+    border: "1px solid #FDE68A",
+  },
+  labelBadge: {
+    display: "inline-block",
+    padding: "2px 8px",
+    borderRadius: "4px",
+    fontSize: "12px",
+    backgroundColor: "#F3F4F6",
+    color: "#4B5563",
+    margin: "2px",
+  },
+  configSection: {
+    backgroundColor: "#F9FAFB",
+    border: "1px solid #E5E7EB",
+    borderRadius: "6px",
+    padding: "12px",
+    marginBottom: "16px",
+  },
+};
+
+function JiraPublisher({ 
+  isOpen, 
+  onClose, 
+  artifactType, 
+  artifactTitle,
+  content,
+  onPublishSuccess,
+  jiraDomain,
+  jiraEmail,
+  jiraApiToken
+}) {
+  const [publishing, setPublishing] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [formData, setFormData] = useState({
+    projectKey: "",
+    summary: "",
+    issueType: ARTIFACT_TO_ISSUE_TYPE[artifactType] || "Task",
+    assignee: "",
+    labels: "",
+    epicKey: "",
+  });
+  const [jiraConfig, setJiraConfig] = useState(() => {
+    const stored = getStoredJiraConfig();
+    return {
+      domain: jiraDomain || stored.domain,
+      email: jiraEmail || stored.email,
+      apiToken: jiraApiToken || stored.apiToken,
+    };
+  });
+  const [saveConfig, setSaveConfig] = useState(false);
+
+  useEffect(() => {
+    if (saveConfig && jiraConfig.domain && jiraConfig.email && jiraConfig.apiToken) {
+      saveJiraConfig(jiraConfig);
+    }
+  }, [saveConfig, jiraConfig]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        projectKey: "",
+        summary: artifactTitle || `${artifactType?.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())} Document`,
+        issueType: ARTIFACT_TO_ISSUE_TYPE[artifactType] || "Task",
+        assignee: "",
+        labels: "rfe,ai-generated",
+        epicKey: "",
+      });
+      setError(null);
+      setSuccess(null);
+    }
+  }, [isOpen, artifactType, artifactTitle]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setPublishing(true);
+    setError(null);
+
+    if (!jiraConfig.domain || !jiraConfig.email || !jiraConfig.apiToken) {
+      setError("JIRA configuration is incomplete. Please provide domain, email, and API token.");
+      setPublishing(false);
+      return;
+    }
+
+    try {
+      const descriptionADF = {
+        type: "doc",
+        version: 1,
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "text",
+                text: content
+              }
+            ]
+          }
+        ]
+      };
+
+      const payload = {
+        fields: {
+          project: { key: formData.projectKey },
+          summary: formData.summary,
+          description: descriptionADF,
+          issuetype: { name: formData.issueType },
+        }
+      };
+
+      if (formData.assignee) {
+        payload.fields.assignee = { accountId: formData.assignee };
+      }
+      
+      if (formData.labels) {
+        payload.fields.labels = formData.labels.split(",").map(l => l.trim()).filter(Boolean);
+      }
+
+      if (formData.epicKey && formData.issueType !== "Epic") {
+        payload.fields.parent = { key: formData.epicKey };
+      }
+
+      const jiraUrl = `https://${jiraConfig.domain}/rest/api/3/issue`;
+      const authToken = btoa(`${jiraConfig.email}:${jiraConfig.apiToken}`);
+
+      const response = await fetch(jiraUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Basic ${authToken}`,
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        const errorMessage = errorData.errors 
+          ? Object.entries(errorData.errors).map(([key, value]) => `${key}: ${value}`).join(", ")
+          : errorData.errorMessages?.join(", ") || "Failed to create JIRA issue";
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      setSuccess({
+        key: result.key,
+        url: `https://${jiraConfig.domain}/browse/${result.key}`,
+      });
+
+      if (onPublishSuccess) {
+        onPublishSuccess(result);
+      }
+
+      setTimeout(() => {
+        onClose();
+      }, 3000);
+
+    } catch (err) {
+      console.error("JIRA API Error:", err);
+      setError(err.message || "An unexpected error occurred");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleConfigChange = (field, value) => {
+    setJiraConfig(prev => ({ ...prev, [field]: value }));
+  };
+
+  if (!isOpen) return null;
+
+  const hasValidConfig = jiraConfig.domain && jiraConfig.email && jiraConfig.apiToken;
+
+  return (
+    <div style={modalStyles.overlay} onClick={onClose}>
+      <div style={modalStyles.content} onClick={(e) => e.stopPropagation()}>
+        <div style={modalStyles.header}>
+          <h2 style={modalStyles.title}>Publish to JIRA Cloud</h2>
+          <p style={modalStyles.description}>
+            Create a JIRA issue from this {artifactType?.replace(/_/g, " ")} artifact.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} style={modalStyles.form}>
+          {!hasValidConfig && (
+            <div style={modalStyles.configSection}>
+              <h3 style={{ ...modalStyles.label, marginBottom: "12px" }}>
+                JIRA Configuration Required
+              </h3>
+              
+              <div style={modalStyles.fieldGroup}>
+                <label htmlFor="jiraDomain" style={modalStyles.label}>
+                  JIRA Domain <span style={modalStyles.required}>*</span>
+                </label>
+                <input
+                  id="jiraDomain"
+                  type="text"
+                  placeholder="your-domain.atlassian.net"
+                  value={jiraConfig.domain}
+                  onChange={(e) => handleConfigChange("domain", e.target.value)}
+                  style={modalStyles.input}
+                />
+              </div>
+
+              <div style={{ ...modalStyles.fieldGroup, marginTop: "12px" }}>
+                <label htmlFor="jiraEmail" style={modalStyles.label}>
+                  Email <span style={modalStyles.required}>*</span>
+                </label>
+                <input
+                  id="jiraEmail"
+                  type="email"
+                  placeholder="your-email@example.com"
+                  value={jiraConfig.email}
+                  onChange={(e) => handleConfigChange("email", e.target.value)}
+                  style={modalStyles.input}
+                />
+              </div>
+
+              <div style={{ ...modalStyles.fieldGroup, marginTop: "12px" }}>
+                <label htmlFor="jiraApiToken" style={modalStyles.label}>
+                  API Token <span style={modalStyles.required}>*</span>
+                </label>
+                <input
+                  id="jiraApiToken"
+                  type="password"
+                  placeholder="Your JIRA API token"
+                  value={jiraConfig.apiToken}
+                  onChange={(e) => handleConfigChange("apiToken", e.target.value)}
+                  style={modalStyles.input}
+                />
+                <p style={{ fontSize: "12px", color: "#6B7280", marginTop: "4px" }}>
+                  Generate an API token at: <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" style={{ color: "#3B82F6" }}>Atlassian Account Settings</a>
+                </p>
+              </div>
+
+              <div style={{ marginTop: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <input
+                  id="saveConfig"
+                  type="checkbox"
+                  checked={saveConfig}
+                  onChange={(e) => setSaveConfig(e.target.checked)}
+                  style={{ cursor: "pointer" }}
+                />
+                <label htmlFor="saveConfig" style={{ ...modalStyles.label, margin: 0, cursor: "pointer" }}>
+                  Save configuration for future use
+                </label>
+              </div>
+              
+              {getStoredJiraConfig().domain && (
+                <div style={{ marginTop: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.removeItem('jiraConfig');
+                      setJiraConfig({ domain: "", email: "", apiToken: "" });
+                      setSaveConfig(false);
+                    }}
+                    style={{
+                      fontSize: "12px",
+                      color: "#DC2626",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Clear saved configuration
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!hasValidConfig && (
+            <div style={{ ...modalStyles.alert, ...modalStyles.warningAlert }}>
+              <span>⚠️</span>
+              <span>Please configure JIRA settings above before creating issues.</span>
+            </div>
+          )}
+
+          <div style={modalStyles.fieldGroup}>
+            <label htmlFor="projectKey" style={modalStyles.label}>
+              Project Key <span style={modalStyles.required}>*</span>
+            </label>
+            <input
+              id="projectKey"
+              type="text"
+              placeholder="e.g., PROJ, DEV, RHOAI"
+              value={formData.projectKey}
+              onChange={(e) => handleInputChange("projectKey", e.target.value.toUpperCase())}
+              required
+              disabled={publishing || success || !hasValidConfig}
+              style={{
+                ...modalStyles.input,
+                ...(publishing || success || !hasValidConfig ? { opacity: 0.5, cursor: "not-allowed" } : {})
+              }}
+            />
+          </div>
+
+          <div style={modalStyles.fieldGroup}>
+            <label htmlFor="summary" style={modalStyles.label}>
+              Summary <span style={modalStyles.required}>*</span>
+            </label>
+            <input
+              id="summary"
+              type="text"
+              placeholder="Brief description of the issue"
+              value={formData.summary}
+              onChange={(e) => handleInputChange("summary", e.target.value)}
+              required
+              disabled={publishing || success || !hasValidConfig}
+              style={{
+                ...modalStyles.input,
+                ...(publishing || success || !hasValidConfig ? { opacity: 0.5, cursor: "not-allowed" } : {})
+              }}
+            />
+          </div>
+
+          <div style={modalStyles.fieldGroup}>
+            <label htmlFor="issueType" style={modalStyles.label}>
+              Issue Type <span style={modalStyles.required}>*</span>
+            </label>
+            <select
+              id="issueType"
+              value={formData.issueType}
+              onChange={(e) => handleInputChange("issueType", e.target.value)}
+              disabled={publishing || success || !hasValidConfig}
+              style={{
+                ...modalStyles.select,
+                ...(publishing || success || !hasValidConfig ? { opacity: 0.5, cursor: "not-allowed" } : {})
+              }}
+            >
+              {ISSUE_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.icon} {type.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {formData.issueType !== "Epic" && (
+            <div style={modalStyles.fieldGroup}>
+              <label htmlFor="epicKey" style={modalStyles.label}>
+                Epic Key
+                <span style={{ ...modalStyles.label, color: "#6B7280", marginLeft: "8px" }}>
+                  (optional)
+                </span>
+              </label>
+              <input
+                id="epicKey"
+                type="text"
+                placeholder="e.g., PROJ-123"
+                value={formData.epicKey}
+                onChange={(e) => handleInputChange("epicKey", e.target.value.toUpperCase())}
+                disabled={publishing || success || !hasValidConfig}
+                style={{
+                  ...modalStyles.input,
+                  ...(publishing || success || !hasValidConfig ? { opacity: 0.5, cursor: "not-allowed" } : {})
+                }}
+              />
+            </div>
+          )}
+
+          <div style={modalStyles.fieldGroup}>
+            <label htmlFor="assignee" style={modalStyles.label}>
+              Assignee Account ID
+              <span style={{ ...modalStyles.label, color: "#6B7280", marginLeft: "8px" }}>
+                (optional)
+              </span>
+            </label>
+            <input
+              id="assignee"
+              type="text"
+              placeholder="JIRA account ID (e.g., 5a1b2c3d-4e5f-6789-0abc-def123456789)"
+              value={formData.assignee}
+              onChange={(e) => handleInputChange("assignee", e.target.value)}
+              disabled={publishing || success || !hasValidConfig}
+              style={{
+                ...modalStyles.input,
+                ...(publishing || success || !hasValidConfig ? { opacity: 0.5, cursor: "not-allowed" } : {})
+              }}
+            />
+            <p style={{ fontSize: "12px", color: "#6B7280", marginTop: "4px" }}>
+              Note: For JIRA Cloud, use the account ID, not email. You can find account IDs in JIRA user profiles.
+            </p>
+          </div>
+
+          <div style={modalStyles.fieldGroup}>
+            <label htmlFor="labels" style={modalStyles.label}>
+              Labels
+              <span style={{ ...modalStyles.label, color: "#6B7280", marginLeft: "8px" }}>
+                (comma-separated)
+              </span>
+            </label>
+            <input
+              id="labels"
+              type="text"
+              placeholder="rfe, ai-generated, frontend"
+              value={formData.labels}
+              onChange={(e) => handleInputChange("labels", e.target.value)}
+              disabled={publishing || success || !hasValidConfig}
+              style={{
+                ...modalStyles.input,
+                ...(publishing || success || !hasValidConfig ? { opacity: 0.5, cursor: "not-allowed" } : {})
+              }}
+            />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "4px" }}>
+              {formData.labels.split(",").map((label, idx) => {
+                const trimmed = label.trim();
+                return trimmed ? (
+                  <span key={idx} style={modalStyles.labelBadge}>
+                    {trimmed}
+                  </span>
+                ) : null;
+              })}
+            </div>
+          </div>
+
+          {error && (
+            <div style={{ ...modalStyles.alert, ...modalStyles.errorAlert }}>
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {success && (
+            <div style={{ ...modalStyles.alert, ...modalStyles.successAlert }}>
+              <span>✅</span>
+              <span style={{ flex: 1 }}>Issue created successfully: {success.key}</span>
+              <button
+                type="button"
+                onClick={() => window.open(success.url, "_blank")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "4px",
+                  color: "#065F46",
+                }}
+              >
+                🔗
+              </button>
+            </div>
+          )}
+        </form>
+
+        <div style={modalStyles.footer}>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={publishing}
+            style={{
+              ...modalStyles.button,
+              ...modalStyles.secondaryButton,
+              ...(publishing ? modalStyles.disabledButton : {}),
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            onClick={handleSubmit}
+            disabled={publishing || !formData.projectKey || !formData.summary || success || !hasValidConfig}
+            style={{
+              ...modalStyles.button,
+              ...modalStyles.primaryButton,
+              ...(publishing || !formData.projectKey || !formData.summary || success || !hasValidConfig 
+                ? modalStyles.disabledButton 
+                : {}),
+            }}
+          >
+            {publishing ? (
+              <>
+                <span style={{ display: "inline-block", animation: "spin 1s linear infinite" }}>⟳</span>
+                Publishing...
+              </>
+            ) : success ? (
+              <>
+                <span>✅</span>
+                Published
+              </>
+            ) : (
+              <>
+                <span>📤</span>
+                Publish
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function ArtifactTab({ artifactType, content, isActive, onEdit }) {
   const [copied, setCopied] = useState(false);
+  const [showJiraPublisher, setShowJiraPublisher] = useState(false);
   const meta = ARTIFACT_META[artifactType] || ARTIFACT_META.rfe_description;
 
   const handleCopy = async () => {
@@ -85,6 +756,7 @@ function ArtifactTab({ artifactType, content, isActive, onEdit }) {
         </div>
         
         <div className="flex items-center gap-2">
+          <h1>hello</h1>
           <Button
             variant="ghost"
             size="sm"
@@ -106,6 +778,15 @@ function ArtifactTab({ artifactType, content, isActive, onEdit }) {
             <Download className="h-3 w-3" />
           </Button>
           <Button
+            variant="jira"
+            size="sm"
+            onClick={() => setShowJiraPublisher(true)}
+            className="h-8"
+            title="Publish to JIRA"
+          >
+            <Send className="h-3 w-3" />
+          </Button>
+          <Button
             variant="ghost"
             size="sm"
             onClick={() => onEdit(artifactType)}
@@ -122,6 +803,18 @@ function ArtifactTab({ artifactType, content, isActive, onEdit }) {
           <Markdown content={content} />
         </div>
       </ScrollArea>
+      
+      {/* JIRA Publisher Dialog */}
+      <JiraPublisher
+        isOpen={showJiraPublisher}
+        onClose={() => setShowJiraPublisher(false)}
+        artifactType={artifactType}
+        artifactTitle={meta.title}
+        content={content}
+        onPublishSuccess={(result) => {
+          console.log('Published to JIRA:', result);
+        }}
+      />
     </div>
   );
 }
