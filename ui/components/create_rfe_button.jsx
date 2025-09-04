@@ -13,6 +13,8 @@ import React, { useState } from "react";
 
 function CreateRFEButton({ event, onCreateRFE }) {
   const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   
   if (!event) return null;
 
@@ -25,13 +27,80 @@ function CreateRFEButton({ event, onCreateRFE }) {
 
   const handleCreateRFE = async () => {
     setIsCreating(true);
+    setError("");
+    setSuccessMessage("");
     try {
       if (onCreateRFE) {
         await onCreateRFE({
           rfe_content,
           refinement_content
         });
+      } else {
+        // Default client-side Jira issue creation via REST API
+        const baseUrl = process.env.NEXT_PUBLIC_JIRA_BASE_URL || "https://rfe-builder.atlassian.net";
+        const email = process.env.NEXT_PUBLIC_JIRA_EMAIL;
+        const apiToken = process.env.NEXT_PUBLIC_JIRA_API_TOKEN;
+        const projectKey = process.env.NEXT_PUBLIC_JIRA_PROJECT_KEY || "RHAIRFE";
+        const issueType = process.env.NEXT_PUBLIC_JIRA_ISSUE_TYPE || "Epic";
+
+        if (!email || !apiToken) {
+          throw new Error("Missing Jira configuration. Please set NEXT_PUBLIC_JIRA_EMAIL and NEXT_PUBLIC_JIRA_API_TOKEN env vars.");
+        }
+
+        const authHeader = typeof btoa === "function"
+          ? `Basic ${btoa(`${email}:${apiToken}`)}`
+          : `Basic ${Buffer.from(`${email}:${apiToken}`).toString("base64")}`;
+
+        const summary = (rfe_content || "New RFE")
+          .split("\n")[0]
+          .slice(0, 240) || "New RFE";
+
+        // Atlassian Document Format for description
+        const makeParagraph = (text) => ({
+          type: "paragraph",
+          content: text ? [{ type: "text", text }] : []
+        });
+
+        const descriptionDoc = {
+          type: "doc",
+          version: 1,
+          content: [
+            { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "RFE Description" }] },
+            makeParagraph(rfe_content || ""),
+            { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Feature Refinement" }] },
+            makeParagraph(refinement_content || "")
+          ]
+        };
+
+        const payload = {
+          fields: {
+            project: { key: projectKey },
+            summary,
+            issuetype: { name: issueType },
+            description: descriptionDoc
+          }
+        };
+
+        const resp = await fetch(`${baseUrl.replace(/\/$/, "")}/rest/api/3/issue`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: authHeader,
+            Accept: "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) {
+          const text = await resp.text();
+          throw new Error(`Jira create issue failed (${resp.status}): ${text}`);
+        }
+
+        const data = await resp.json();
+        setSuccessMessage(`Created Jira issue ${data.key}. View it at: ${baseUrl}/browse/${data.key}`);
       }
+    } catch (e) {
+      setError(e?.message || "Failed to create Jira issue");
     } finally {
       setIsCreating(false);
     }
@@ -85,6 +154,17 @@ function CreateRFEButton({ event, onCreateRFE }) {
               <p>Creating the RFE will submit your refined documents to Jira. You can then use the separate Architecture Workflow to generate detailed technical designs and implementation plans.</p>
             </div>
           </div>
+
+          {error && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+              {error}
+            </div>
+          )}
+          {successMessage && (
+            <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-3">
+              {successMessage}
+            </div>
+          )}
 
           {/* Action Button */}
           <div className="flex justify-center pt-2">
