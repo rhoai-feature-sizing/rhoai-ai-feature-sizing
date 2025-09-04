@@ -41,7 +41,7 @@ function CreateRFEButton({ event, onCreateRFE }) {
         const email = process.env.NEXT_PUBLIC_JIRA_EMAIL;
         const apiToken = process.env.NEXT_PUBLIC_JIRA_API_TOKEN;
         const projectKey = process.env.NEXT_PUBLIC_JIRA_PROJECT_KEY || "RHAIRFE";
-        const issueType = process.env.NEXT_PUBLIC_JIRA_ISSUE_TYPE || "Task";
+        const issueType = process.env.NEXT_PUBLIC_JIRA_ISSUE_TYPE || "Epic";
 
         if (!email || !apiToken) {
           throw new Error("Missing Jira configuration. Please set NEXT_PUBLIC_JIRA_EMAIL and NEXT_PUBLIC_JIRA_API_TOKEN env vars.");
