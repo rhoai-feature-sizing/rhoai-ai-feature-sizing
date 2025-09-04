@@ -194,9 +194,9 @@ function CreateRFEButton({ event, onCreateRFE }) {
 }
 
 export default function Component({ events, onCreateRFE }) {
-  // Get the most recent create_rfe_ready event
+  // Get the most recent CreateRFEButton event or create_rfe_ready event
   const event = events && events.length > 0 
-    ? events.find(e => e.type === 'create_rfe_ready') || events[events.length - 1]
+    ? events.find(e => e.type === 'CreateRFEButton' || e.type === 'create_rfe_ready') || events[events.length - 1]
     : null;
 
   return <CreateRFEButton event={event} onCreateRFE={onCreateRFE} />;

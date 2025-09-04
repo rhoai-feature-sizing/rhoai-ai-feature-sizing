@@ -17,7 +17,7 @@ class ProviderRegistry:
             "defaults": {
                 "model": "gpt-4",
                 "temperature": 0.1,
-                "streaming": False,
+                "streaming": True,
                 "max_tokens": 4000,
             },
             "env_map": {"api_key": "OPENAI_API_KEY", "api_base": "OPENAI_API_BASE"},
