@@ -231,7 +231,7 @@ class RFEBuilderWorkflow(Workflow):
         # Show Create RFE button after Phase 1 completion
         ctx.write_event_to_stream(
             UIEvent(
-                type="create_rfe_ready",
+                type="CreateRFEButton",
                 data={
                     "message": "RFE documents are ready! Create the RFE in Jira when you're satisfied with the content.",
                     "artifacts": list(phase_1_artifacts.keys()),
@@ -296,28 +296,35 @@ class RFEBuilderWorkflow(Workflow):
         )
 
         try:
-            # Stream the summary generation
+            # Try streaming first
             accumulated_text = ""
             char_count = 0
+            
+            try:
+                stream_response = self.llm.astream_complete(summary_prompt)
+                # Check if the response is actually an async iterator
+                async for chunk in stream_response:
+                    accumulated_text += chunk.delta
+                    char_count += len(chunk.delta)
 
-            async for chunk in self.llm.astream_complete(summary_prompt):
-                accumulated_text += chunk.delta
-                char_count += len(chunk.delta)
-
-                # Stream update every 10 characters
-                if char_count >= 10:
-                    ctx.write_event_to_stream(
-                        UIEvent(
-                            type="agent_analysis_summary",
-                            data={
-                                "status": "streaming",
-                                "summary": accumulated_text,
-                                "message": "Generating analysis summary...",
-                                "timestamp": int(time.time() * 1000),
-                            },
+                    # Stream update every 10 characters
+                    if char_count >= 10:
+                        ctx.write_event_to_stream(
+                            UIEvent(
+                                type="agent_analysis_summary",
+                                data={
+                                    "status": "streaming",
+                                    "summary": accumulated_text,
+                                    "message": "Generating analysis summary...",
+                                    "timestamp": int(time.time() * 1000),
+                                },
+                            )
                         )
-                    )
-                    char_count = 0
+                        char_count = 0
+            except (TypeError, AttributeError) as streaming_error:
+                # Fallback to non-streaming completion if streaming fails
+                response = await self.llm.acomplete(summary_prompt)
+                accumulated_text = response.text
 
             # Send final complete event
             ctx.write_event_to_stream(
